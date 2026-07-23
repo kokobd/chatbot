@@ -15,7 +15,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useOnClickOutside } from "usehooks-ts";
 import {
   Tooltip,
   TooltipContent,
@@ -346,15 +345,30 @@ const PureToolbar = ({
   onClose?: () => void;
 }) => {
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
 
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  useOnClickOutside(toolbarRef, () => {
-    setIsToolbarVisible(false);
-    setSelectedTool(null);
-  });
+  useEffect(() => {
+    const handlePointerDown = ({ target }: PointerEvent) => {
+      if (
+        !toolbarRef.current ||
+        !(target instanceof Node) ||
+        toolbarRef.current.contains(target)
+      ) {
+        return;
+      }
+
+      setIsToolbarVisible(false);
+      setSelectedTool(null);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [setIsToolbarVisible]);
 
   const startCloseTimer = useCallback(() => {
     if (timeoutRef.current) {
