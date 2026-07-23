@@ -30,7 +30,7 @@
   - Component primitives from [Radix UI](https://radix-ui.com) for accessibility and flexibility
 - Data Persistence
   - [Neon Serverless Postgres](https://vercel.com/marketplace/neon) for saving chat history and user data
-  - [Vercel Blob](https://vercel.com/storage/blob) for efficient file storage
+  - Google Cloud Storage for uploaded files
 - [Auth.js](https://authjs.dev)
   - Simple and secure authentication
 
@@ -52,13 +52,11 @@ You can deploy your own version of Chatbot to Vercel with one click:
 
 ## Running locally
 
-You will need to use the environment variables [defined in `.env.example`](.env.example) to run Chatbot. It's recommended you use [Vercel Environment Variables](https://vercel.com/docs/projects/environment-variables) for this, but a `.env` file is all that is necessary.
+You will need to use the environment variables [defined in `.env.example`](.env.example) to run Chatbot. A `.env` file is sufficient for local development.
+
+Uploaded files use Google Cloud Storage. Set `GCS_BUCKET` and configure Application Default Credentials with `gcloud auth application-default login`, or provide a production service identity through the standard Google Cloud credential mechanisms.
 
 > Note: You should not commit your `.env` file or it will expose secrets that will allow others to control access to your various AI and authentication provider accounts.
-
-1. Install Vercel CLI: `npm i -g vercel`
-2. Link local instance with Vercel and GitHub accounts (creates `.vercel` directory): `vercel link`
-3. Download your environment variables: `vercel env pull`
 
 ```bash
 pnpm install

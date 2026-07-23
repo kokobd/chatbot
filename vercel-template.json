@@ -11,9 +11,6 @@
       "protocol": "storage",
       "productSlug": "upstash-kv",
       "integrationSlug": "upstash"
-    },
-    {
-      "type": "blob"
     }
   ]
 }

@@ -1,0 +1,19 @@
+[package]
+name = "chatbot_native"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+bytes = "1"
+google-cloud-storage = "1.16.0"
+napi = { version = "3", features = ["tokio_rt"] }
+napi-derive = "3"
+percent-encoding = "2.3"
+tokio = { version = "1", features = ["sync"] }
+uuid = { version = "1", features = ["v4"] }
+
+[build-dependencies]
+napi-build = "2"

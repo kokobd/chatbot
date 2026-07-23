@@ -1,4 +1,4 @@
-import { put } from "@vercel/blob";
+import { uploadObject } from "@chatbot/native";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -45,13 +45,14 @@ export async function POST(request: Request) {
     }
 
     const filename = (formData.get("file") as File).name;
-    const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
     const fileBuffer = await file.arrayBuffer();
 
     try {
-      const data = await put(`${safeName}`, fileBuffer, {
-        access: "public",
-      });
+      const data = await uploadObject(
+        Buffer.from(fileBuffer),
+        filename,
+        file.type
+      );
 
       return NextResponse.json(data);
     } catch {

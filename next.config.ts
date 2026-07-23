@@ -36,7 +36,7 @@ const nextConfig: NextConfig = {
         hostname: "avatar.vercel.sh",
       },
       {
-        hostname: "*.public.blob.vercel-storage.com",
+        hostname: "storage.googleapis.com",
         protocol: "https",
       },
     ],
@@ -49,6 +49,7 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   reactCompiler: true,
+  serverExternalPackages: ["@chatbot/native"],
 };
 
 export default withBotId(nextConfig);
