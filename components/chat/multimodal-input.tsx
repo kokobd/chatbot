@@ -696,7 +696,6 @@ function ModelSelectorOption({
   selectedModelId: string;
   setOpen: Dispatch<SetStateAction<boolean>>;
 }) {
-  const [logoProvider] = model.id.split("/");
   const maybeWithTooltip = (icon: ReactNode, label: string) => {
     if (!curated) {
       return icon;
@@ -741,7 +740,7 @@ function ModelSelectorOption({
       onSelect={handleSelect}
       value={model.id}
     >
-      <ModelSelectorLogo provider={logoProvider} />
+      <ModelSelectorLogo provider={model.provider} />
       <ModelSelectorName>{model.name}</ModelSelectorName>
       <div className="ml-auto flex items-center gap-2 text-foreground/70">
         {capabilities?.[model.id]?.tools
@@ -806,7 +805,7 @@ function PureModelSelectorCompact({
     activeModels.find((m: ChatModel) => m.id === selectedModelId) ??
     activeModels.find((m: ChatModel) => m.id === DEFAULT_CHAT_MODEL) ??
     activeModels[0];
-  const [provider] = selectedModel.id.split("/");
+  const { provider } = selectedModel;
 
   return (
     <ModelSelector onOpenChange={setOpen} open={open}>
@@ -878,6 +877,7 @@ function PureModelSelectorCompact({
               "prime-intellect": "Prime Intellect",
               xai: "xAI",
               xiaomi: "Xiaomi",
+              "z-ai": "Z.ai",
               zai: "Zai",
             };
 

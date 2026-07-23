@@ -1,4 +1,8 @@
-import { getAllGatewayModels, getCapabilities, isDemo } from "@/lib/ai/models";
+import {
+  getAllOpenRouterModels,
+  getCapabilities,
+  isDemo,
+} from "@/lib/ai/models";
 
 export async function GET() {
   const headers = {
@@ -8,7 +12,7 @@ export async function GET() {
   const curatedCapabilities = await getCapabilities();
 
   if (isDemo) {
-    const models = await getAllGatewayModels();
+    const models = await getAllOpenRouterModels();
     const capabilities = Object.fromEntries(
       models.map((m) => [m.id, curatedCapabilities[m.id] ?? m.capabilities])
     );

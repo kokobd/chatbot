@@ -1,12 +1,6 @@
-export const DEFAULT_CHAT_MODEL = "moonshotai/kimi-k2.5";
+import { isTestEnvironment } from "../constants";
 
-export const titleModel = {
-  description: "Fast model for title generation",
-  gatewayOrder: ["fireworks", "bedrock"],
-  id: "moonshotai/kimi-k2.5",
-  name: "Kimi K2.5",
-  provider: "moonshotai",
-};
+const OPENROUTER_API_BASE_URL = "https://openrouter.ai/api/v1";
 
 export type ModelCapabilities = {
   tools: boolean;
@@ -19,130 +13,211 @@ export type ChatModel = {
   name: string;
   provider: string;
   description: string;
-  gatewayOrder?: string[];
-  reasoningEffort?: "none" | "minimal" | "low" | "medium" | "high";
+  capabilities: ModelCapabilities;
+};
+
+export const DEFAULT_CHAT_MODEL = "moonshotai/kimi-k3";
+
+export const titleModel = {
+  description: "Fast model for title generation",
+  id: "~google/gemini-flash-latest",
+  name: "Gemini Flash Latest",
+  provider: "google",
 };
 
 export const chatModels: ChatModel[] = [
   {
-    description: "Fast and capable model with tool use",
-    gatewayOrder: ["bedrock", "deepinfra"],
-    id: "deepseek/deepseek-v3.2",
-    name: "DeepSeek V3.2",
-    provider: "deepseek",
-  },
-  {
-    description: "Moonshot AI flagship model",
-    gatewayOrder: ["fireworks", "bedrock"],
-    id: "moonshotai/kimi-k2.5",
-    name: "Kimi K2.5",
+    capabilities: { reasoning: true, tools: true, vision: true },
+    description: "Multimodal reasoning model for complex work and coding",
+    id: "moonshotai/kimi-k3",
+    name: "Kimi K3",
     provider: "moonshotai",
   },
   {
-    description: "Compact reasoning model",
-    gatewayOrder: ["groq", "bedrock"],
-    id: "openai/gpt-oss-20b",
-    name: "GPT OSS 20B",
-    provider: "openai",
-    reasoningEffort: "low",
+    capabilities: { reasoning: true, tools: true, vision: false },
+    description: "Large-scale reasoning model for coding and agent workflows",
+    id: "deepseek/deepseek-v4-pro",
+    name: "DeepSeek V4 Pro",
+    provider: "deepseek",
   },
   {
-    description: "Open-source 120B parameter model",
-    gatewayOrder: ["fireworks", "bedrock"],
-    id: "openai/gpt-oss-120b",
-    name: "GPT OSS 120B",
-    provider: "openai",
-    reasoningEffort: "low",
+    capabilities: { reasoning: true, tools: true, vision: false },
+    description: "Large-scale reasoning model from Z.ai",
+    id: "z-ai/glm-5.2",
+    name: "GLM 5.2",
+    provider: "zai",
   },
   {
-    description: "Fast non-reasoning model with tool use",
-    gatewayOrder: ["xai"],
-    id: "xai/grok-4.1-fast-non-reasoning",
-    name: "Grok 4.1 Fast",
-    provider: "xai",
+    capabilities: { reasoning: false, tools: true, vision: true },
+    description: "OpenAI's latest ChatGPT instant model",
+    id: "openai/gpt-chat-latest",
+    name: "ChatGPT Latest",
+    provider: "openai",
+  },
+  {
+    capabilities: { reasoning: true, tools: true, vision: true },
+    description: "Anthropic's latest Sonnet model",
+    id: "~anthropic/claude-sonnet-latest",
+    name: "Claude Sonnet Latest",
+    provider: "anthropic",
+  },
+  {
+    capabilities: { reasoning: true, tools: true, vision: true },
+    description: "Google's latest fast multimodal model",
+    id: "~google/gemini-flash-latest",
+    name: "Gemini Flash Latest",
+    provider: "google",
   },
 ];
+
+type OpenRouterModel = {
+  architecture?: {
+    input_modalities?: string[];
+    output_modalities?: string[];
+  };
+  canonical_slug?: string;
+  id: string;
+  name: string;
+  supported_parameters?: string[];
+};
+
+type OpenRouterEndpoint = {
+  latency_last_1h?: {
+    p50?: number;
+    p95?: number;
+  };
+  provider_name?: string;
+  status?: number;
+  uptime_last_15m?: number;
+  uptime_last_1h?: number;
+};
+
+function openRouterHeaders() {
+  const headers = new Headers();
+  const apiKey = process.env.OPENROUTER_API_KEY;
+
+  if (apiKey) {
+    headers.set("Authorization", `Bearer ${apiKey}`);
+  }
+
+  if (process.env.OPENROUTER_HTTP_REFERER) {
+    headers.set("HTTP-Referer", process.env.OPENROUTER_HTTP_REFERER);
+  }
+
+  if (process.env.OPENROUTER_APP_NAME) {
+    headers.set("X-Title", process.env.OPENROUTER_APP_NAME);
+  }
+
+  return headers;
+}
+
+function normalizedModelId(modelId: string) {
+  return modelId.replace(/^~/, "");
+}
+
+function modelEndpointUrl(modelId: string) {
+  const [author, ...slugParts] = normalizedModelId(modelId).split("/");
+  return `${OPENROUTER_API_BASE_URL}/models/${author}/${slugParts.join("/")}/endpoints`;
+}
+
+async function getOpenRouterModels(): Promise<OpenRouterModel[]> {
+  const res = await fetch(`${OPENROUTER_API_BASE_URL}/models`, {
+    headers: openRouterHeaders(),
+    next: { revalidate: 86_400 },
+  });
+
+  if (!res.ok) {
+    return [];
+  }
+
+  const json = (await res.json()) as { data?: OpenRouterModel[] };
+  return json.data ?? [];
+}
+
+function getModelMetadata(
+  models: OpenRouterModel[],
+  modelId: string
+): OpenRouterModel | undefined {
+  const normalizedId = normalizedModelId(modelId);
+  return models.find(
+    (model) =>
+      model.id === modelId ||
+      model.id === normalizedId ||
+      model.canonical_slug === normalizedId
+  );
+}
+
+function getModelCapabilities(
+  model: OpenRouterModel | undefined,
+  fallback: ModelCapabilities
+): ModelCapabilities {
+  if (!model) {
+    return fallback;
+  }
+
+  const parameters = new Set(model.supported_parameters ?? []);
+  const inputModalities = new Set(model.architecture?.input_modalities ?? []);
+
+  return {
+    reasoning: parameters.has("reasoning"),
+    tools: parameters.has("tools"),
+    vision: inputModalities.has("image"),
+  };
+}
 
 export async function getCapabilities(): Promise<
   Record<string, ModelCapabilities>
 > {
-  const results = await Promise.all(
-    chatModels.map(async (model) => {
-      try {
-        const res = await fetch(
-          `https://ai-gateway.vercel.sh/v1/models/${model.id}/endpoints`,
-          { next: { revalidate: 86_400 } }
-        );
-        if (!res.ok) {
-          return [model.id, { reasoning: false, tools: false, vision: false }];
-        }
-
-        const json = await res.json();
-        const endpoints = json.data?.endpoints ?? [];
-        const params = new Set(
-          endpoints.flatMap(
-            (e: { supported_parameters?: string[] }) =>
-              e.supported_parameters ?? []
-          )
-        );
-        const inputModalities = new Set(
-          json.data?.architecture?.input_modalities ?? []
-        );
-
-        return [
-          model.id,
-          {
-            reasoning: params.has("reasoning"),
-            tools: params.has("tools"),
-            vision: inputModalities.has("image"),
-          },
-        ];
-      } catch {
-        return [model.id, { reasoning: false, tools: false, vision: false }];
-      }
-    })
+  const fallback = Object.fromEntries(
+    chatModels.map((model) => [model.id, model.capabilities])
   );
 
-  return Object.fromEntries(results);
+  if (isTestEnvironment) {
+    return fallback;
+  }
+
+  try {
+    const models = await getOpenRouterModels();
+    return Object.fromEntries(
+      chatModels.map((model) => [
+        model.id,
+        getModelCapabilities(
+          getModelMetadata(models, model.id),
+          model.capabilities
+        ),
+      ])
+    );
+  } catch {
+    return fallback;
+  }
 }
 
 export const isDemo = process.env.IS_DEMO === "1";
 
-type GatewayModel = {
-  id: string;
-  name: string;
-  type?: string;
-  tags?: string[];
-};
-
-export type GatewayModelWithCapabilities = ChatModel & {
+export type OpenRouterModelWithCapabilities = ChatModel & {
   capabilities: ModelCapabilities;
 };
 
-export async function getAllGatewayModels(): Promise<
-  GatewayModelWithCapabilities[]
+export async function getAllOpenRouterModels(): Promise<
+  OpenRouterModelWithCapabilities[]
 > {
   try {
-    const res = await fetch("https://ai-gateway.vercel.sh/v1/models", {
-      next: { revalidate: 86_400 },
-    });
-    if (!res.ok) {
-      return [];
-    }
+    const models = await getOpenRouterModels();
 
-    const json = await res.json();
-    return (json.data ?? [])
-      .filter((m: GatewayModel) => m.type === "language")
-      .map((m: GatewayModel) => ({
-        capabilities: {
-          reasoning: m.tags?.includes("reasoning") ?? false,
-          tools: m.tags?.includes("tool-use") ?? false,
-          vision: m.tags?.includes("vision") ?? false,
-        },
+    return models
+      .filter((model) =>
+        model.architecture?.output_modalities?.includes("text")
+      )
+      .map((model) => ({
+        capabilities: getModelCapabilities(model, {
+          reasoning: false,
+          tools: false,
+          vision: false,
+        }),
         description: "",
-        id: m.id,
-        name: m.name,
-        provider: m.id.split("/")[0],
+        id: model.id,
+        name: model.name,
+        provider: model.id.split("/")[0],
       }));
   } catch {
     return [];
@@ -153,7 +228,7 @@ export function getActiveModels(): ChatModel[] {
   return chatModels;
 }
 
-export const allowedModelIds = new Set(chatModels.map((m) => m.id));
+export const allowedModelIds = new Set(chatModels.map((model) => model.id));
 
 export const modelsByProvider = chatModels.reduce(
   (acc, model) => {
@@ -168,22 +243,11 @@ export const modelsByProvider = chatModels.reduce(
 
 export type ModelAvailability = "healthy" | "impacted" | "unknown";
 
-type GatewayEndpoint = {
-  provider_name?: string;
-  status?: number;
-  uptime_last_15m?: number;
-  uptime_last_1h?: number;
-  latency_last_1h?: {
-    p50?: number;
-    p95?: number;
-  };
-};
-
 const PROVIDER_IMPACTED_UPTIME_THRESHOLD = 99;
 const PROVIDER_IMPACTED_P50_MS = 10_000;
 const PROVIDER_IMPACTED_P95_MS = 30_000;
 
-function isEndpointImpacted(endpoint: GatewayEndpoint) {
+function isEndpointImpacted(endpoint: OpenRouterEndpoint) {
   return (
     (endpoint.status !== undefined && endpoint.status !== 0) ||
     (endpoint.uptime_last_15m !== undefined &&
@@ -207,16 +271,19 @@ export async function getModelAvailability(
   }
 
   try {
-    const res = await fetch(
-      `https://ai-gateway.vercel.sh/v1/models/${model.id}/endpoints`,
-      { next: { revalidate: 60 } }
-    );
+    const res = await fetch(modelEndpointUrl(model.id), {
+      headers: openRouterHeaders(),
+      next: { revalidate: 60 },
+    });
+
     if (!res.ok) {
       return "unknown";
     }
 
-    const json = await res.json();
-    const endpoints = (json.data?.endpoints ?? []) as GatewayEndpoint[];
+    const json = (await res.json()) as {
+      data?: { endpoints?: OpenRouterEndpoint[] };
+    };
+    const endpoints = json.data?.endpoints ?? [];
 
     if (endpoints.length === 0) {
       return "unknown";

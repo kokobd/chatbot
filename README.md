@@ -24,7 +24,7 @@
 - [AI SDK](https://ai-sdk.dev/docs/introduction)
   - Unified API for generating text, structured objects, and tool calls with LLMs
   - Hooks for building dynamic chat and generative user interfaces
-  - Supports OpenAI, Anthropic, Google, xAI, and other model providers via AI Gateway
+  - Supports OpenAI, Anthropic, Google, DeepSeek, Moonshot, and Z.ai through OpenRouter
 - [shadcn/ui](https://ui.shadcn.com)
   - Styling with [Tailwind CSS](https://tailwindcss.com)
   - Component primitives from [Radix UI](https://radix-ui.com) for accessibility and flexibility
@@ -36,13 +36,11 @@
 
 ## Model Providers
 
-This template uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) to access multiple AI models through a unified interface. Models are configured in `lib/ai/models.ts` with per-model provider routing. Included models: Mistral, Moonshot, DeepSeek, OpenAI, and xAI.
+This template uses [OpenRouter](https://openrouter.ai/) to access multiple AI models through a unified interface. Models are configured in `lib/ai/models.ts`. Included models: Kimi K3, DeepSeek V4 Pro, GLM 5.2, ChatGPT Latest, Claude Sonnet Latest, and Gemini Flash Latest.
 
-### AI Gateway Authentication
+### OpenRouter Authentication
 
-**For Vercel deployments**: Authentication is handled automatically via OIDC tokens.
-
-**For non-Vercel deployments**: You need to provide an AI Gateway API key by setting the `AI_GATEWAY_API_KEY` environment variable in your `.env.local` file.
+Provide an OpenRouter API key by setting the `OPENROUTER_API_KEY` environment variable in your `.env.local` file. `OPENROUTER_HTTP_REFERER` and `OPENROUTER_APP_NAME` are optional metadata headers.
 
 With the [AI SDK](https://ai-sdk.dev/docs/introduction), you can also switch to direct LLM providers like [OpenAI](https://openai.com), [Anthropic](https://anthropic.com), [Cohere](https://cohere.com/), and [many more](https://ai-sdk.dev/providers/ai-sdk-providers) with just a few lines of code.
 
