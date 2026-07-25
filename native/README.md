@@ -75,6 +75,18 @@ described in the repository README. For uploads, set `GCS_BUCKET` and provide
 Google credentials through Application Default Credentials or the standard
 Google credential environment variables.
 
+The Firestore capability spike uses the active stage's database configuration:
+
+```bash
+FIRESTORE_PROJECT_ID=... FIRESTORE_DATABASE_ID=... \
+  pnpm native:firestore:test
+```
+
+The database ID must name a non-default Firestore database, and credentials
+must be available through Application Default Credentials. The command runs
+only the ignored real-GCP capability test; `pnpm native:test` remains fully
+credential-free and does not contact Firestore.
+
 ```bash
 pnpm native:build
 pnpm native:test

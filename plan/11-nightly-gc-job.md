@@ -1,0 +1,47 @@
+# 11 — Nightly Firestore garbage collection job
+
+## Status
+
+Separate process; not part of the Node.js runtime migration. Implement after
+the Firestore cutover and deploy it as a dedicated GCP Cloud Run Job scheduled
+once per night.
+
+## Goal
+
+Physically remove Firestore descendants and obsolete artifact data that the
+application has already hidden through tombstones or head-pointer changes.
+
+## Scope
+
+- Build a standalone job entrypoint with the shared Rust Firestore client and
+  domain cleanup rules. It must not depend on N-API or the main Node.js
+  process.
+- Purge chats marked `deleting`/`deleted`: messages, votes, streams, then the
+  parent chat document.
+- Purge artifact versions and suggestions marked unreachable after the
+  application changes `headVersionId` or logically truncates history.
+- Use a configurable grace period before physical deletion, with a safe
+  development default and a longer production value.
+- Process data in bounded pages and batches, persist or recompute progress from
+  document state, and make every operation idempotent after interruption.
+- Emit structured counts, duration, failure, and retry metrics. A failed run
+  must leave tombstones intact for the next run.
+
+## Deployment
+
+- Provision a dedicated Cloud Run Job service account with only the required
+  Firestore data-access permissions.
+- Schedule the job nightly through the GCP scheduler mechanism selected by the
+  infrastructure plan.
+- Keep the job’s project/database configuration separate from web-process
+  configuration, while targeting the same workspace database.
+- Do not call the job from request handlers, `after()`, startup hooks, or
+  application services.
+
+## Tests and checkpoint
+
+Test interrupted runs, repeated runs, partial batches, grace-period protection,
+orphaned subcollections, unreachable artifact versions, and multi-workspace
+isolation against a real GCP test database. The checkpoint is a deployable job
+whose retry leaves no duplicate effects and whose normal web requests perform
+no physical garbage collection.

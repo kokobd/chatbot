@@ -12,57 +12,26 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="037363a9-a916-4f6d-9aa2-86e3622b8824" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/../AGENTS.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../lib/db/migrations/0001_add_iap_subject.sql" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/application/iap_authentication.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/application/iap_identity.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/infrastructure/iap_google_identity.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/infrastructure/iap_test_identity.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../tests/e2e/iap-auth.test.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../.env.example" beforeDir="false" afterPath="$PROJECT_DIR$/../.env.example" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../.github/workflows/playwright.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../.github/workflows/playwright.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../README.md" beforeDir="false" afterPath="$PROJECT_DIR$/../README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/(auth)/actions.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/(auth)/api/auth/[...nextauth]/route.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/(auth)/api/auth/guest/route.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/(auth)/auth.config.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/(auth)/auth.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../app/(auth)/auth.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/(auth)/layout.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/(auth)/login/page.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/(auth)/register/page.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../app/layout.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../components/chat/app-sidebar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../components/chat/app-sidebar.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../components/chat/auth-form.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../components/chat/sidebar-history.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../components/chat/sidebar-history.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../components/chat/sidebar-user-nav.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../components/chat/sidebar-user-nav.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../components/chat/sign-out-form.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/ai/entitlements.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/ai/entitlements.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/ai/tools/create-document.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/ai/tools/create-document.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/ai/tools/edit-document.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/ai/tools/edit-document.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/ai/tools/request-suggestions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/ai/tools/request-suggestions.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/ai/tools/update-document.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/ai/tools/update-document.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/artifacts/server.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/artifacts/server.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/constants.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/constants.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/db/migrations/meta/_journal.json" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/db/migrations/meta/_journal.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/db/queries.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/db/queries.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/db/schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/db/schema.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/db/utils.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/native.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/native.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/infrastructure/firestore.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../plan/01-firestore-capability-spike.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../plan/02-domain-types.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../plan/03-user-repository.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../plan/04-chat-repository.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../plan/05-chat-messages.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../plan/06-chat-lifecycle.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../plan/07-artifact-repository.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../plan/08-artifact-suggestions.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../plan/09-native-typescript-cutover.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../plan/10-infrastructure-cutover.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../plan/11-nightly-gc-job.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../plan/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/native.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/native.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/index.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/index.d.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/application/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/application/mod.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/infrastructure/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/infrastructure/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/service.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/service.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../playwright.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../playwright.config.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../pnpm-lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../pnpm-lock.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../proxy.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../proxy.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../tests/e2e/auth.test.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../tests/e2e/file-upload.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../tests/e2e/file-upload.test.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -94,7 +63,7 @@
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "aa4aa2fd",
+    "git-widget-placeholder": "45899691",
     "last_opened_file_path": "/Users/zelin/work/chatbot/native",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
@@ -103,7 +72,8 @@
     "nodejs_package_manager_path": "npm",
     "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
     "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
-    "org.rust.first.attach.projects": "true"
+    "org.rust.first.attach.projects": "true",
+    "settings.editor.selected.configurable": "vcs.Git"
   }
 }]]></component>
   <component name="RunManager">
