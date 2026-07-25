@@ -235,16 +235,16 @@ function PureMultimodalInput({
 
     sendMessage({
       parts: [
+        {
+          text: input,
+          type: "text",
+        },
         ...attachments.map((attachment) => ({
           mediaType: attachment.contentType,
           name: attachment.name,
           type: "file" as const,
           url: attachment.url,
         })),
-        {
-          text: input,
-          type: "text",
-        },
       ],
       role: "user",
     });
@@ -483,6 +483,7 @@ function PureMultimodalInput({
 
       <input
         className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
+        data-testid="file-input"
         multiple
         onChange={handleFileChange}
         ref={fileInputRef}

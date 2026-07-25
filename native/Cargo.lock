@@ -147,12 +147,14 @@ dependencies = [
 name = "chatbot_native"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "bytes",
  "google-cloud-storage",
  "napi",
  "napi-build",
  "napi-derive",
  "percent-encoding",
+ "thiserror",
  "tokio",
  "uuid",
 ]

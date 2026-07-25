@@ -13,6 +13,7 @@ import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
+import { classifyAIError } from "@/lib/ai/error-classifier";
 import {
   allowedModelIds,
   chatModels,
@@ -65,7 +66,19 @@ function getStreamContext() {
   }
 }
 
-export { getStreamContext };
+function logAIProviderError(error: unknown, model: string) {
+  const classifiedError = classifyAIError(error);
+
+  console.error("AI model stream error", {
+    category: classifiedError.category,
+    diagnosticMessage: classifiedError.diagnosticMessage,
+    model,
+    retryable: classifiedError.retryable,
+    statusCode: classifiedError.statusCode,
+  });
+
+  return classifiedError;
+}
 
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
@@ -82,7 +95,11 @@ export async function POST(request: Request) {
       requestBody;
 
     const [botIdResult, session] = await Promise.all([
-      checkBotId().catch(() => null),
+      // This HUMAN bypass is development-only; production keeps BotID protection.
+      (process.env.NODE_ENV === "development"
+        ? checkBotId({ developmentOptions: { bypass: "HUMAN" } })
+        : checkBotId()
+      ).catch(() => null),
       auth(),
     ]);
 
@@ -291,7 +308,8 @@ export async function POST(request: Request) {
           onEnd() {
             stopWaitingStatus();
           },
-          onError() {
+          onError({ error }) {
+            logAIProviderError(error, chatModel);
             stopWaitingStatus();
           },
           stopWhen: isStepCount(5),
@@ -322,6 +340,9 @@ export async function POST(request: Request) {
 
         dataStream.merge(
           toUIMessageStream({
+            onError(error) {
+              return classifyAIError(error).message;
+            },
             sendReasoning: isReasoningModel,
             stream: result.stream,
           })
@@ -380,17 +401,7 @@ export async function POST(request: Request) {
           });
         }
       },
-      onError: (error) => {
-        if (
-          error instanceof Error &&
-          error.message?.includes(
-            "AI Gateway requires a valid credit card on file to service requests"
-          )
-        ) {
-          return "AI Gateway requires a valid credit card on file to service requests. Please visit https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dadd-credit-card to add a card and unlock your free credits.";
-        }
-        return "Oops, an error occurred!";
-      },
+      onError: (error) => logAIProviderError(error, chatModel).message,
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
     });
 

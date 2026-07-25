@@ -1,0 +1,69 @@
+# Native service architecture
+
+The Rust package is the application composition root for server-only native
+capabilities. It exposes one explicit `External<Service>` handle to Node.js.
+
+## Responsibilities
+
+- `application/` contains Rust-native application behavior. `FileUploadService`
+  owns upload naming rules and depends on the `ObjectStorage` port trait. It
+  does not know about N-API or Google Cloud.
+- `infrastructure/` implements application ports. `GcsObjectStorage` owns GCS
+  client construction, `GCS_BUCKET` configuration, uploads, public URL
+  generation, and provider error mapping.
+- `service.rs` is the composition root. `Service` owns the concrete
+  `FileUploadService<GcsObjectStorage>` graph and is created explicitly by
+  `createService()`.
+- `lib.rs` is the N-API adapter. It converts Node buffers and native results,
+  accepts `&External<Service>`, and translates native errors into N-API
+  errors.
+- `lib/native.ts` is the server-side TypeScript bridge. It memoizes one
+  service promise for the current Node.js runtime and keeps callers from
+  passing native handles through application code.
+
+Application ports are implemented by infrastructure providers. Tests can
+construct `FileUploadService` with a fake `ObjectStorage` without credentials,
+network access, or a real bucket. Provider-specific URL and adapter behavior
+is tested separately under `infrastructure/`.
+
+## Adding a server-side capability
+
+1. Define the application service and its port trait in `application/`.
+2. Implement the infrastructure adapter in `infrastructure/`.
+3. Wire the concrete graph into `Service` in `service.rs`.
+4. Add an N-API function in `lib.rs` that accepts `&External<Service>`.
+5. Update `lib/native.ts` and the server-side caller.
+6. Add application, infrastructure, and end-to-end tests.
+
+Keep one explicit service handle per Node.js runtime. Rust must not introduce a
+global singleton for shared infrastructure. Separate processes, worker
+threads, serverless instances, and replicas may each have their own service.
+`Service` may own reusable clients, pools, and caches, but it must not hold
+request-specific or user-specific mutable state. Explicit shutdown handling
+can be added when a future dependency requires graceful cleanup.
+
+## Local development and verification
+
+Install dependencies and configure the database and AI environment as
+described in the repository README. For uploads, set `GCS_BUCKET` and provide
+Google credentials through Application Default Credentials or the standard
+Google credential environment variables.
+
+```bash
+pnpm native:build
+pnpm native:test
+pnpm exec tsc --noEmit
+PORT=3000 pnpm exec playwright test tests/e2e/file-upload.test.ts
+```
+
+The end-to-end test intentionally fails with a prerequisite error when
+`GCS_BUCKET`, `POSTGRES_URL`, `AUTH_SECRET`, or Google credentials are missing.
+It registers a real user, selects a real PNG through the chat file input,
+checks the upload response, fetches the public GCS URL, and verifies the
+attachment preview in the UI.
+
+If native loading fails, rebuild with `pnpm native:build` and ensure commands
+run from the repository root. If service creation reports configuration or
+credential errors, verify `GCS_BUCKET` and Application Default Credentials. If
+the e2e test cannot authenticate or register its user, apply the local database
+migrations and verify `POSTGRES_URL` and `AUTH_SECRET` before rerunning it.

@@ -1,8 +1,8 @@
-import { uploadObject } from "@chatbot/native";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auth } from "@/app/(auth)/auth";
+import { uploadObject } from "@/lib/native";
 
 const FileSchema = z.object({
   file: z
