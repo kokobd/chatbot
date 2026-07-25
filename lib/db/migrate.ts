@@ -7,6 +7,10 @@ config({
   path: ".env.local",
 });
 
+config({
+  path: ".env",
+});
+
 const runMigrate = async () => {
   if (!process.env.POSTGRES_URL) {
     console.log("POSTGRES_URL not defined, skipping migrations");
