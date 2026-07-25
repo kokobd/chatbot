@@ -5,6 +5,8 @@ use firestore::{FirestoreDb, FirestoreDbOptions, FirestoreResult};
 /// Credentials support; configuration is supplied by the composition root or
 /// by a process-specific entrypoint.
 pub(crate) async fn connect(project_id: &str, database_id: &str) -> FirestoreResult<FirestoreDb> {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     FirestoreDb::with_options(
         FirestoreDbOptions::new(project_id.to_string()).with_database_id(database_id.to_string()),
     )
@@ -89,7 +91,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "requires a real named GCP Firestore database and ADC"]
     async fn firestore_supports_required_primitives() -> firestore::FirestoreResult<()> {
         let (project_id, database_id) = stage_database_configuration();
         let db = connect(&project_id, &database_id).await?;
@@ -99,7 +100,7 @@ mod tests {
         let parent = CapabilityParent {
             id: "parent-1".to_string(),
         };
-        let parent_path = format!("{parents}/{}", parent.id);
+        let parent_path = db.parent_path(&parents, &parent.id)?.to_string();
 
         let result: firestore::FirestoreResult<()> = async {
             db.fluent()

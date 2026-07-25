@@ -28,3 +28,4 @@ tsconfig.tsbuildinfo
 .pnpm-store/
 /native/*.node
 /native/target/
+.idea/

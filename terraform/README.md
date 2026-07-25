@@ -5,8 +5,8 @@ workspace name is intentionally open-ended: use names such as `dev`, `test`,
 `staging`, `prod`, or `feature-abcdef` without changing this configuration.
 
 The application bucket is named
-`chatbot-<workspace>-<project_id>`. Cloud Run and Firestore can be added to the
-same root later; each workspace will receive its own set of resources.
+`chatbot-<workspace>-<project_id>`, and the Firestore database is named
+`chatbot-<workspace>`. Each workspace receives its own set of resources.
 
 ## One-time state setup
 
@@ -40,11 +40,53 @@ terraform output -raw bucket_name
 
 For an existing environment, use `terraform workspace select test`. To create
 a feature environment, use `terraform workspace new feature-abcdef` and apply
-again. Each workspace has isolated remote state and a distinct bucket.
+again. Each workspace has isolated remote state and a distinct bucket and
+Firestore database.
+
+The `test` workspace uses Firestore Native mode in the location configured by
+`firestore_location` (default `us-central1`). Apply it with:
+
+```sh
+terraform workspace select test
+terraform fmt -check
+terraform validate
+terraform plan
+terraform apply
+```
+
+The Firestore API and named database are managed by Terraform. The database is
+empty when created; no application data is imported or migrated. The `prod`
+workspace enables point-in-time recovery and deletion protection, while other
+workspaces use a destroyable database.
 
 Set the output bucket name as `GCS_BUCKET` for the application. The bucket
 allows public object reads because the application returns direct
 `storage.googleapis.com` URLs for uploaded files.
+
+Use these outputs to configure the Firestore capability test:
+
+```sh
+export FIRESTORE_PROJECT_ID="$(terraform output -raw firestore_project_id)"
+export FIRESTORE_DATABASE_ID="$(terraform output -raw firestore_database_id)"
+pnpm native:firestore:test
+```
+
+The capability test is part of the native test suite and requires these
+variables and Google Application Default Credentials whenever native tests are
+run:
+
+```sh
+export FIRESTORE_PROJECT_ID="$(terraform output -raw firestore_project_id)"
+export FIRESTORE_DATABASE_ID="$(terraform output -raw firestore_database_id)"
+pnpm native:test
+```
+
+Verify the named database directly when needed:
+
+```sh
+gcloud firestore databases describe --database=chatbot-test \
+  --project="$(terraform output -raw firestore_project_id)"
+```
 
 ## Validation
 

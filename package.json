@@ -7,7 +7,7 @@
     "build": "pnpm native:build && tsx lib/db/migrate && next build",
     "native:build": "napi build --release --manifest-path native/Cargo.toml --output-dir native && pnpm exec biome check --write native/index.d.ts",
     "native:test": "cargo test --manifest-path native/Cargo.toml",
-    "native:firestore:test": "cargo test --manifest-path native/Cargo.toml --lib infrastructure::firestore::tests::firestore_supports_required_primitives -- --ignored --nocapture",
+    "native:firestore:test": "cargo test --manifest-path native/Cargo.toml --lib infrastructure::firestore::tests::firestore_supports_required_primitives -- --nocapture",
     "start": "next start",
     "check": "ultracite check",
     "fix": "ultracite fix",

@@ -83,9 +83,15 @@ FIRESTORE_PROJECT_ID=... FIRESTORE_DATABASE_ID=... \
 ```
 
 The database ID must name a non-default Firestore database, and credentials
-must be available through Application Default Credentials. The command runs
-only the ignored real-GCP capability test; `pnpm native:test` remains fully
-credential-free and does not contact Firestore.
+must be available through Application Default Credentials. The capability test
+is included in `pnpm native:test`, so configure the same variables before
+running the full native suite:
+
+```bash
+export FIRESTORE_PROJECT_ID=...
+export FIRESTORE_DATABASE_ID=...
+pnpm native:test
+```
 
 ```bash
 pnpm native:build

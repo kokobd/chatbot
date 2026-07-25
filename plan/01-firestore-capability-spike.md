@@ -16,8 +16,8 @@ repositories.
   delete.
 - Configure the active stage with `FIRESTORE_PROJECT_ID` and
   `FIRESTORE_DATABASE_ID`; do not introduce test-specific variable names.
-- Keep the spike behind an explicit ignored-test command; ordinary native
-  tests must not require GCP credentials.
+- Run the spike only after configuring the active stage with the required GCP
+  environment variables and ADC.
 
 ## Checkpoint
 

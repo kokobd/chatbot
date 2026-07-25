@@ -15,6 +15,12 @@ variable "location" {
   default     = "us-central1"
 }
 
+variable "firestore_location" {
+  description = "The Google Cloud location for the Firestore database."
+  type        = string
+  default     = "us-central1"
+}
+
 variable "force_destroy" {
   description = "Whether destroying a bucket should also delete its objects."
   type        = bool
@@ -22,8 +28,10 @@ variable "force_destroy" {
 }
 
 locals {
-  environment = terraform.workspace
-  bucket_name = "chatbot-${local.environment}-${var.project_id}"
+  environment             = terraform.workspace
+  bucket_name             = "chatbot-${local.environment}-${var.project_id}"
+  firestore_database_name = "chatbot-${local.environment}"
+  firestore_is_production = local.environment == "prod"
 
   labels = {
     application = "chatbot"
