@@ -15,6 +15,29 @@ infrastructure/  Firestore implementations
 N-API/TS         narrow adapters at the outer boundary
 ```
 
+## Distributed runtime invariants
+
+The web service will run as multiple Cloud Run instances and revisions. No
+correctness property may depend on an in-process `Mutex`, `RwLock`, cache,
+singleton, or Cloud Run concurrency setting. Process-local caches are allowed
+only for performance and must tolerate independent instances and eviction.
+
+All cross-request coordination must be provided by Firestore deterministic
+document IDs, transactions, write preconditions, field masks, or server-side
+timestamps. Retried writes must be idempotent or reconcile an ambiguous result
+before returning an error. Persistence errors must preserve whether a failure
+is retryable.
+
+Firestore schemas belong to infrastructure DTOs with explicit wire field names
+and conversions to validated domain types. Do not use provider-independent
+domain serialization as the long-term Firestore schema, and validate document
+identity and ownership on every read before exposing it to application code.
+
+Repository tests must cover independent repository/service instances and
+cross-instance interleavings using the real Terraform-managed test database
+where practical. Test-only synchronization primitives are acceptable for
+forcing races in fakes; they must not appear in production repository state.
+
 Repositories follow aggregate ownership rather than SQL table count:
 
 - `UserRepository` owns IAP user identity records.

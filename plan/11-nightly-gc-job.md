@@ -24,6 +24,13 @@ application has already hidden through tombstones or head-pointer changes.
   development default and a longer production value.
 - Process data in bounded pages and batches, persist or recompute progress from
   document state, and make every operation idempotent after interruption.
+- Assume Cloud Run Job tasks and executions can overlap or retry. Use durable
+  leases/claims or disjoint deterministic work partitions when needed; never
+  coordinate cleanup with in-memory locks. A lease expiry must allow recovery
+  after a crashed task.
+- Treat not-found deletes as successful and retain tombstones until descendant
+  cleanup is verified, so a repeated or overlapping purge cannot erase the
+  safety marker prematurely.
 - Emit structured counts, duration, failure, and retry metrics. A failed run
   must leave tombstones intact for the next run.
 
@@ -40,8 +47,9 @@ application has already hidden through tombstones or head-pointer changes.
 
 ## Tests and checkpoint
 
-Test interrupted runs, repeated runs, partial batches, grace-period protection,
-orphaned subcollections, unreachable artifact versions, and multi-workspace
-isolation against a real GCP test database. The checkpoint is a deployable job
-whose retry leaves no duplicate effects and whose normal web requests perform
-no physical garbage collection.
+Test interrupted runs, repeated and overlapping runs, partial batches,
+grace-period protection, lease recovery, not-found deletes, orphaned
+subcollections, unreachable artifact versions, and multi-workspace isolation
+against a real GCP test database. The checkpoint is a deployable job whose
+retry leaves no duplicate effects and whose normal web requests perform no
+physical garbage collection.

@@ -4,6 +4,7 @@ use firestore::{FirestoreDb, FirestoreDbOptions, FirestoreResult};
 /// database. Authentication is delegated to the crate's Application Default
 /// Credentials support; configuration is supplied by the composition root or
 /// by a process-specific entrypoint.
+#[allow(dead_code)]
 pub(crate) async fn connect(project_id: &str, database_id: &str) -> FirestoreResult<FirestoreDb> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 

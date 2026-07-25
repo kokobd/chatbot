@@ -12,7 +12,8 @@ Add `native/src/domain/` modules for:
 - users and IAP identity;
 - chats, visibility, messages, votes, and streams;
 - artifacts, document versions, and suggestions;
-- pagination cursors and shared persistence errors.
+- pagination cursors. Repository error categories belong to the application
+  repository ports; the domain exports validation errors only.
 
 Define the invariants needed by later repositories: valid visibility/kind/role,
 stable user key derivation from an IAP subject, deterministic vote identity,

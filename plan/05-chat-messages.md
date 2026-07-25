@@ -7,12 +7,20 @@ Move message persistence and the recent per-user usage query to Firestore.
 ## Scope
 
 - Add `messages/{messageId}` under each chat.
-- Store denormalized `userId` on messages for the collection-group usage query.
+- Extend the message domain/application value with authenticated `user_id` and
+  store it as denormalized `userId` on every message for the collection-group
+  usage query.
 - Implement create-only batch saves, message updates, chat reads, ordered reads,
   and the internal `getMessageById({ chatId, messageId })` shape.
+- Allocate message IDs before any retry. Duplicate IDs must compare the full
+  immutable payload and return the existing message only when it matches; they
+  must never overwrite a different message.
 - Store `parts` and `attachments` as validated JSON payloads with indexing
-  disabled; measure serialized size before every write and reject or externalize
-  payloads before the Firestore document limit is reached.
+  disabled; measure the total encoded Firestore document size before every write
+  and reject or externalize payloads before the document limit is reached.
+- Use explicit infrastructure DTOs, field-specific updates, and lifecycle
+  preconditions so retries and requests from different Cloud Run instances do
+  not lose unrelated fields or write to a tombstoned chat.
 - Implement the recent user-message count using `userId`, `role`, and
   `createdAt` only after the capability spike verifies the collection-group
   query and index. Treat it as a monitored hot path because it runs before each
@@ -21,7 +29,9 @@ Move message persistence and the recent per-user usage query to Firestore.
 
 ## Tests and checkpoint
 
-Cover duplicate message IDs, message ordering, JSON round trips, payload limits,
-updates, cutoff timestamps, and collection-group counts across multiple chats.
-Include equal-timestamp messages, payloads near the size boundary, and a
-latency/cost benchmark for the usage query.
+Cover duplicate message IDs and payload mismatches, message ordering, JSON
+round trips, payload limits, updates, cutoff timestamps, and collection-group
+counts across multiple chats and independent repository instances. Include
+equal-timestamp messages, payloads near the total size boundary, retryable
+batch writes, tombstone interleavings, and a latency/cost benchmark for the
+usage query.

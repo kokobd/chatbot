@@ -26,40 +26,15 @@ pub enum ValidationError {
     },
 }
 
-/// Errors shared by persistence ports and adapters.
-#[derive(Debug, Clone, Error, PartialEq, Eq)]
-pub enum PersistenceError {
-    #[error("record not found")]
-    NotFound,
-    #[error("record already exists")]
-    Conflict,
-    #[error("persistence service is unavailable: {0}")]
-    Unavailable(String),
-    #[error("invalid persistence input: {0}")]
-    InvalidInput(String),
-    #[error("persistence serialization failed: {0}")]
-    Serialization(String),
-}
-
-impl From<ValidationError> for PersistenceError {
-    fn from(error: ValidationError) -> Self {
-        Self::InvalidInput(error.to_string())
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{PersistenceError, ValidationError};
+    use super::ValidationError;
 
     #[test]
-    fn validation_failures_are_classified_as_invalid_input() {
-        let error = PersistenceError::from(ValidationError::Empty { field: "id" });
-        assert!(matches!(error, PersistenceError::InvalidInput(_)));
-    }
-
-    #[test]
-    fn operational_error_categories_remain_distinct() {
-        assert_eq!(PersistenceError::NotFound, PersistenceError::NotFound);
-        assert_ne!(PersistenceError::Conflict, PersistenceError::NotFound);
+    fn validation_failures_remain_domain_validation_errors() {
+        assert_eq!(
+            ValidationError::Empty { field: "id" }.to_string(),
+            "id must not be empty"
+        );
     }
 }

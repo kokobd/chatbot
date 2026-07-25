@@ -3,6 +3,10 @@ pub mod domain;
 mod infrastructure;
 mod service;
 
+pub use application::repository::{Email, IapUser, PersistenceError, UserRepository};
+pub use application::user_service::{UserService, UserServiceError};
+pub use infrastructure::firestore_user_repository::FirestoreUserRepository;
+
 use application::file_upload::UploadResult as ApplicationUploadResult;
 use application::iap_authentication::IapAuthenticationError;
 use application::iap_identity::{

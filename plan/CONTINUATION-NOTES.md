@@ -9,7 +9,8 @@ The provider-independent domain layer is in `native/src/domain/`. It has no
 Firestore, N-API, environment, or network dependencies. The public module
 surface includes users, IAP identity, chats, visibility and lifecycle state,
 messages and roles, votes, streams, artifacts, document versions, suggestions,
-pagination positions, JSON values, validation, and persistence errors.
+pagination positions, JSON values, and validation. Repository persistence errors
+are application-layer port errors under `native/src/application/repository/`.
 
 Important invariants:
 
@@ -31,6 +32,12 @@ The domain types are deliberately not wired into the existing SQL-backed
 application yet. Plans 3–8 should add application repository traits and
 services around these types, with provider implementations only in
 `native/src/infrastructure`.
+
+Ambiguous Firestore write handling belongs in the infrastructure adapter. The
+adapter must classify setup, commit, and post-commit conversion failures
+separately, reconcile only `OutcomeUnknown` writes, and preserve the original
+unknown outcome if its reconciliation read fails. Application services should
+not repeat that reconciliation.
 
 ## Live smoke-test lessons
 
@@ -68,4 +75,3 @@ The Firestore capability test requires a real named database and must not run
 with `FIRESTORE_EMULATOR_HOST` set. Use `jj`, not `git`, for repository
 operations. Keep generated native build artifacts and unrelated working-copy
 changes untouched.
-

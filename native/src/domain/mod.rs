@@ -21,7 +21,7 @@ pub mod vote;
 
 pub use artifact::{Artifact, ArtifactKind};
 pub use chat::{Chat, LifecycleState, Visibility};
-pub use error::{PersistenceError, ValidationError};
+pub use error::ValidationError;
 pub use iap_identity::{iap_user_key, IapIdentity, IapSubject};
 pub use json::JsonValue;
 pub use message::{Message, MessageRole};

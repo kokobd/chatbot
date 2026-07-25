@@ -15,9 +15,19 @@ pattern and switch TypeScript callers without changing route behavior.
 - Replace Drizzle-derived TypeScript types with persistence-neutral domain types.
 - Update the chat route where message saves now require the authenticated user
   ID.
+- Preserve persistence error category and retryability through the N-API and
+  TypeScript compatibility adapter. Do not add client-side retries for
+  non-idempotent operations.
+- Preserve Firestore timestamp precision and cursor opacity across the boundary;
+  JavaScript `Date` and serialized cursors must not silently round or rebuild
+  `(createdAt, id)` positions.
+- Verify behavior with multiple service instances/revisions in the real test
+  stage; Cloud Run concurrency settings are not a correctness mechanism.
 
 ## Tests and checkpoint
 
 Run Rust application tests, N-API boundary tests, TypeScript type checking, and
-the existing route/e2e tests against Firestore. Error categories, timestamps,
-nullable values, and arbitrary JSON must survive the boundary unchanged.
+the existing route/e2e tests against Firestore. Include retryable and
+non-retryable failures, cross-instance duplicate/replay scenarios, and
+timestamp/cursor round trips. Error categories, timestamp precision, nullable
+values, and arbitrary JSON must survive the boundary unchanged.

@@ -17,6 +17,13 @@ Make Firestore the only runtime database and remove obsolete Postgres setup.
   the migration step from the build.
 - Make real-GCP integration/e2e tests explicit and configure CI authentication
   through Workload Identity Federation.
+- Document the Cloud Run distributed-runtime contract: reuse a Firestore client
+  per process instance for performance, but assume multiple instances and
+  revisions coexist; correctness must come from Firestore transactions,
+  preconditions, deterministic IDs, and idempotent retries, never process-local
+  locks or concurrency limits.
+- Configure request deadlines, retry/ambiguous-write metrics, and alerting for
+  Firestore unavailable, conflict, and failed-precondition categories.
 - Document that runtime deletion only writes tombstones. It must not start
   recursive cleanup in the Node.js process.
 - Provision or document the separate Cloud Run Job identity and Firestore IAM
@@ -24,7 +31,9 @@ Make Firestore the only runtime database and remove obsolete Postgres setup.
 
 ## Tests and checkpoint
 
-Run Terraform format/validate/plan, native tests, TypeScript checks, and the
-full Firestore-backed Playwright suite. Search the repository to confirm no
-runtime Postgres or Drizzle references remain and no Node.js request path owns
-garbage-collection work.
+Run Terraform format/validate/plan against the test and production workspaces,
+native tests with the `.env`-configured named test database, TypeScript checks,
+and the full Firestore-backed Playwright suite. Include rolling-revision and
+retry/replay checks. Search the repository to confirm no runtime Postgres or
+Drizzle references remain, no correctness lock is process-local, and no Node.js
+request path owns garbage-collection work.
