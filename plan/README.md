@@ -3,6 +3,9 @@
 This migration is intentionally split into small vertical slices. Complete
 each plan, run its checkpoint, and only then start the next one.
 
+For durable implementation and verification details from completed work, see
+[continuation notes](./CONTINUATION-NOTES.md) before starting Plans 3–11.
+
 The architectural boundary is:
 
 ```text
