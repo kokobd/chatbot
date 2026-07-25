@@ -19,7 +19,8 @@
     "db:pull": "drizzle-kit pull",
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
-    "test": "export PLAYWRIGHT=True && pnpm exec playwright test"
+    "test": "pnpm exec playwright test",
+    "test:e2e:smoke": "IAP_TEST_EMAIL=plan-02-smoke@example.com IAP_TEST_SUBJECT=plan-02-smoke-subject pnpm exec playwright test tests/e2e/file-upload.test.ts tests/e2e/deepseek-chat.test.ts --workers=1"
   },
   "dependencies": {
     "@ai-sdk/otel": "^1.0.34",

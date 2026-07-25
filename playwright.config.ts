@@ -105,6 +105,8 @@ export default defineConfig({
     command: "WATCHPACK_POLLING=true pnpm dev",
     env: {
       IAP_AUTH_PROVIDER: "test",
+      IAP_TEST_EMAIL: iapTestEmail,
+      IAP_TEST_SUBJECT: iapTestSubject,
     },
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

@@ -50,6 +50,9 @@ test.describe("Model Selector", () => {
       availableModels.getByRole("option", { name: /DeepSeek V4 Pro/ })
     ).toBeVisible();
     await expect(
+      availableModels.getByRole("option", { name: /DeepSeek V4 Flash/ })
+    ).toBeVisible();
+    await expect(
       availableModels.getByRole("option", { name: /Kimi K3/ })
     ).toBeVisible();
     await expect(
