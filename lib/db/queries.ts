@@ -17,7 +17,6 @@ import postgres from "postgres";
 import type { ArtifactKind } from "@/components/chat/artifact";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
 import { ChatbotError } from "../errors";
-import { generateUUID } from "../utils";
 import {
   type Chat,
   chat,
@@ -31,41 +30,61 @@ import {
   user,
   vote,
 } from "./schema";
-import { generateHashedPassword } from "./utils";
 
 const client = postgres(process.env.POSTGRES_URL ?? "");
 const db = drizzle(client);
 
-export async function getUser(email: string): Promise<User[]> {
+export async function getOrCreateIapUser({
+  email,
+  subject,
+}: {
+  email: string;
+  subject: string;
+}): Promise<User> {
   try {
-    return await db.select().from(user).where(eq(user.email, email));
+    const [existing] = await db
+      .select()
+      .from(user)
+      .where(eq(user.iapSubject, subject))
+      .limit(1);
+
+    if (existing) {
+      if (existing.email === email) {
+        return existing;
+      }
+
+      const [updated] = await db
+        .update(user)
+        .set({ email, emailVerified: true, updatedAt: new Date() })
+        .where(eq(user.id, existing.id))
+        .returning();
+
+      return updated ?? existing;
+    }
+
+    const [created] = await db
+      .insert(user)
+      .values({ email, emailVerified: true, iapSubject: subject })
+      .returning();
+
+    return created;
   } catch (error) {
-    throw new ChatbotError("bad_request:database", { cause: error });
-  }
-}
+    // A concurrent first request can win the unique iapSubject insert. Re-read
+    // before surfacing the database error so both requests share one user.
+    try {
+      const [createdByConcurrentRequest] = await db
+        .select()
+        .from(user)
+        .where(eq(user.iapSubject, subject))
+        .limit(1);
 
-export async function createUser(email: string, password: string) {
-  const hashedPassword = generateHashedPassword(password);
+      if (createdByConcurrentRequest) {
+        return createdByConcurrentRequest;
+      }
+    } catch {
+      // Preserve the original database failure below.
+    }
 
-  try {
-    return await db.insert(user).values({ email, password: hashedPassword });
-  } catch (error) {
-    throw new ChatbotError("bad_request:database", {
-      cause: error,
-    });
-  }
-}
-
-export async function createGuestUser() {
-  const email = `guest-${Date.now()}`;
-  const password = generateHashedPassword(generateUUID());
-
-  try {
-    return await db.insert(user).values({ email, password }).returning({
-      email: user.email,
-      id: user.id,
-    });
-  } catch (error) {
     throw new ChatbotError("bad_request:database", { cause: error });
   }
 }

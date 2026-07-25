@@ -9,7 +9,23 @@ export declare class ExternalObject<T> {
 }
 export declare class Service {}
 
+export interface AuthenticatedIdentity {
+  email: string;
+  subject: string;
+}
+
+export declare function authenticateIapRequest(
+  service: ExternalObject<Service>,
+  headers: IapRequestHeaders
+): Promise<AuthenticatedIdentity | null>;
+
 export declare function createService(): Promise<ExternalObject<Service>>;
+
+export interface IapRequestHeaders {
+  authenticatedUserEmail?: string;
+  authenticatedUserId?: string;
+  jwtAssertion?: string;
+}
 
 export declare function uploadObject(
   service: ExternalObject<Service>,

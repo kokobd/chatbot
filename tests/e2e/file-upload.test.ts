@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const requiredEnvironment = ["GCS_BUCKET", "POSTGRES_URL", "AUTH_SECRET"];
+const requiredEnvironment = ["GCS_BUCKET", "POSTGRES_URL"];
 
 function assertConfiguredEnvironment() {
   const missing = requiredEnvironment.filter((name) => !process.env[name]);
@@ -17,13 +17,6 @@ test("uploads a PNG through the chat UI and serves the public object", async ({
 }) => {
   assertConfiguredEnvironment();
 
-  const email = `file-upload-${Date.now()}-${Math.random().toString(36).slice(2)}@playwright.com`;
-  const password = `test-password-${Date.now()}`;
-
-  await page.goto("/register");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign up" }).click();
   await page.goto("/");
 
   const png = Buffer.from(

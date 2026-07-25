@@ -31,8 +31,8 @@
 - Data Persistence
   - [Neon Serverless Postgres](https://vercel.com/marketplace/neon) for saving chat history and user data
   - Google Cloud Storage for uploaded files
-- [Auth.js](https://authjs.dev)
-  - Simple and secure authentication
+- [GCP Identity-Aware Proxy](https://cloud.google.com/security/products/iap)
+  - Authentication and access control at the Cloud Run boundary
 
 ## Model Providers
 
@@ -54,9 +54,21 @@ You can deploy your own version of Chatbot to Vercel with one click:
 
 You will need to use the environment variables [defined in `.env.example`](.env.example) to run Chatbot. A `.env` file is sufficient for local development.
 
+Production authentication is provided by GCP Identity-Aware Proxy. Configure
+IAP on the Cloud Run service, grant the appropriate IAP access policy, and set
+`IAP_JWT_AUDIENCE` to the signed-header audience for that service. The Rust
+authentication provider validates the signed IAP assertion using Google's
+rotating public keys.
+
+For local development, set `IAP_AUTH_PROVIDER=test`, `IAP_TEST_EMAIL`, and
+`IAP_TEST_SUBJECT`. The local Next proxy adds namespaced IAP identity headers to
+incoming requests, so a normal browser session is authenticated as that user.
+This mode is intended only for local development and tests; the native service
+refuses to start in test mode when `NODE_ENV=production`.
+
 Uploaded files use Google Cloud Storage. Set `GCS_BUCKET` and configure Application Default Credentials with `gcloud auth application-default login`, or provide a production service identity through the standard Google Cloud credential mechanisms.
 
-> Note: You should not commit your `.env` file or it will expose secrets that will allow others to control access to your various AI and authentication provider accounts.
+> Note: You should not commit your `.env` file or it will expose secrets that will allow others to control access to your AI provider accounts.
 
 ```bash
 pnpm install

@@ -22,6 +22,9 @@ const PORT = process.env.PORT || 3000;
  * of the WebServer respecting the correct set port
  */
 const baseURL = `http://localhost:${PORT}`;
+const iapTestSubject =
+  process.env.IAP_TEST_SUBJECT ?? "playwright-test-subject";
+const iapTestEmail = process.env.IAP_TEST_EMAIL ?? "playwright@example.com";
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -88,6 +91,11 @@ export default defineConfig({
     /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL,
 
+    extraHTTPHeaders: {
+      "x-goog-authenticated-user-email": `accounts.google.com:${iapTestEmail}`,
+      "x-goog-authenticated-user-id": `accounts.google.com:${iapTestSubject}`,
+    },
+
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: "retain-on-failure",
   },
@@ -95,6 +103,9 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: {
     command: "WATCHPACK_POLLING=true pnpm dev",
+    env: {
+      IAP_AUTH_PROVIDER: "test",
+    },
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
     url: `${baseURL}/ping`,

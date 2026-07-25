@@ -15,6 +15,7 @@ export const user = pgTable("User", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   email: varchar("email", { length: 64 }).notNull(),
   emailVerified: boolean("emailVerified").notNull().default(false),
+  iapSubject: text("iapSubject").unique(),
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   image: text("image"),
   isAnonymous: boolean("isAnonymous").notNull().default(false),
