@@ -1,0 +1,2 @@
+bucket = "terraform-state-default-501702"
+prefix = "terraform/default-501702/chatbot"
