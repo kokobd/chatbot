@@ -78,7 +78,7 @@ impl ChatDocument {
         })
     }
 
-    fn into_chat(self, document_id: &str) -> Result<Chat, PersistenceError> {
+    pub(crate) fn into_chat(self, document_id: &str) -> Result<Chat, PersistenceError> {
         validate_document_id(document_id)
             .map_err(|error| PersistenceError::CorruptData(error.to_string()))?;
         if self.id != document_id {

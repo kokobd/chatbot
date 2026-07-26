@@ -4,12 +4,14 @@ mod infrastructure;
 mod service;
 
 pub use application::chat_service::{ChatService, ChatServiceError};
+pub use application::message_service::{MessageService, MessageServiceError};
 pub use application::repository::{
     ChatHistoryCursor, ChatHistoryPage, ChatHistoryQuery, ChatRepository, ChatTitle, Email,
-    IapUser, PersistenceError, UserRepository,
+    IapUser, MessageParts, MessageQuery, MessageRepository, PersistenceError, UserRepository,
 };
 pub use application::user_service::{UserService, UserServiceError};
 pub use infrastructure::firestore_chat_repository::FirestoreChatRepository;
+pub use infrastructure::firestore_message_repository::FirestoreMessageRepository;
 pub use infrastructure::firestore_user_repository::FirestoreUserRepository;
 
 use application::file_upload::UploadResult as ApplicationUploadResult;

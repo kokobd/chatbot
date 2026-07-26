@@ -36,6 +36,7 @@ impl MessageRole {
 pub struct Message {
     pub id: String,
     pub chat_id: String,
+    pub user_id: String,
     pub role: MessageRole,
     pub parts: JsonValue,
     pub attachments: JsonValue,
@@ -46,6 +47,7 @@ impl Message {
     pub fn new(
         id: impl AsRef<str>,
         chat_id: impl AsRef<str>,
+        user_id: impl AsRef<str>,
         role: MessageRole,
         parts: JsonValue,
         attachments: JsonValue,
@@ -56,6 +58,7 @@ impl Message {
         Ok(Self {
             id: validate_identifier(id.as_ref())?,
             chat_id: validate_identifier(chat_id.as_ref())?,
+            user_id: validate_identifier(user_id.as_ref())?,
             role,
             parts,
             attachments,

@@ -48,3 +48,46 @@ resource "google_firestore_index" "chats_history" {
     order      = "DESCENDING"
   }
 }
+
+resource "google_firestore_index" "messages_usage" {
+  project     = var.project_id
+  database    = google_firestore_database.chatbot.name
+  collection  = "messages"
+  query_scope = "COLLECTION_GROUP"
+  skip_wait   = true
+
+  fields {
+    field_path = "userId"
+    order      = "ASCENDING"
+  }
+
+  fields {
+    field_path = "role"
+    order      = "ASCENDING"
+  }
+
+  fields {
+    field_path = "createdAt"
+    order      = "ASCENDING"
+  }
+}
+
+resource "google_firestore_field" "messages_parts" {
+  project    = var.project_id
+  database   = google_firestore_database.chatbot.name
+  collection = "messages"
+  field      = "parts"
+  skip_wait  = true
+
+  index_config {}
+}
+
+resource "google_firestore_field" "messages_attachments" {
+  project    = var.project_id
+  database   = google_firestore_database.chatbot.name
+  collection = "messages"
+  field      = "attachments"
+  skip_wait  = true
+
+  index_config {}
+}
