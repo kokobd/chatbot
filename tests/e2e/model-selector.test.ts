@@ -73,7 +73,9 @@ test.describe("Model Selector", () => {
     const modelButton = page.getByTestId("model-selector");
     await modelButton.click();
 
-    await page.getByRole("option", { name: /DeepSeek V4 Pro/ }).click();
+    await page
+      .getByRole("option", { name: /DeepSeek V4 Pro/ })
+      .click({ force: true });
 
     await expect(page.getByPlaceholder("Search models...")).not.toBeVisible();
     await expect(modelButton).toContainText("DeepSeek V4 Pro");

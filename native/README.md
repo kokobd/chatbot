@@ -101,13 +101,14 @@ PORT=3000 pnpm exec playwright test tests/e2e/file-upload.test.ts
 ```
 
 The end-to-end test intentionally fails with a prerequisite error when
-`GCS_BUCKET` or `POSTGRES_URL` is missing. Playwright injects a deterministic
+`GCS_BUCKET`, `FIRESTORE_PROJECT_ID`, or `FIRESTORE_DATABASE_ID` is missing. Playwright injects a deterministic
 test IAP identity, selects a real PNG through the chat file input, checks the
 upload response, fetches the public GCS URL, and verifies the attachment
 preview in the UI.
 
 If native loading fails, rebuild with `pnpm native:build` and ensure commands
 run from the repository root. If service creation reports configuration or
-credential errors, verify `GCS_BUCKET` and Application Default Credentials. If
-the e2e test cannot authenticate, verify `IAP_AUTH_PROVIDER`, `POSTGRES_URL`,
-and the local database migrations before rerunning it.
+credential errors, verify `GCS_BUCKET`, the Firestore project/database IDs,
+and Application Default Credentials. If the e2e test cannot authenticate,
+verify `IAP_AUTH_PROVIDER`, `IAP_TEST_EMAIL`, and `IAP_TEST_SUBJECT` before
+rerunning it.

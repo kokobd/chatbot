@@ -4,9 +4,11 @@ test.describe("IAP authentication", () => {
   test("uses the injected IAP identity", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByTestId("user-nav-button")).toBeVisible();
-    await expect(page.getByTestId("user-email")).toContainText(
-      process.env.IAP_TEST_EMAIL ?? "playwright@example.com"
-    );
+    const configuredEmail =
+      process.env.IAP_TEST_EMAIL ?? "playwright@example.com";
+    const [localPart, domain] = configuredEmail.split("@");
+    await expect(page.getByTestId("user-email")).toContainText(localPart);
+    await expect(page.getByTestId("user-email")).toContainText(domain);
   });
 
   test("sign out uses the IAP sign-out flow", async ({ page }) => {

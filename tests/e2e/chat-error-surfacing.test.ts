@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { UI_MESSAGE_STREAM_HEADERS } from "ai";
 
 const categorizedError =
   "OpenRouter does not have enough credits for this request. Increase the key limit or use a smaller output limit, then try again.";
@@ -9,9 +10,7 @@ test("shows the categorized streamed chat error in the existing toast", async ({
   await page.route("**/api/chat", async (route) => {
     await route.fulfill({
       body: `data: ${JSON.stringify({ errorText: categorizedError, type: "error" })}\n\n`,
-      headers: {
-        "x-vercel-ai-ui-message-stream": "v1",
-      },
+      headers: UI_MESSAGE_STREAM_HEADERS,
       status: 200,
     });
   });

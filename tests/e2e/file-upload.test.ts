@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-const requiredEnvironment = ["GCS_BUCKET", "POSTGRES_URL"];
+const requiredEnvironment = [
+  "GCS_BUCKET",
+  "FIRESTORE_PROJECT_ID",
+  "FIRESTORE_DATABASE_ID",
+];
 
 function assertConfiguredEnvironment() {
   const missing = requiredEnvironment.filter((name) => !process.env[name]);

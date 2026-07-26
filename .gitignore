@@ -17,7 +17,6 @@ yarn-error.log*
 .env.production.local
 .turbo
 .env
-.vercel
 .env*.local
 /test-results/
 /playwright-report/

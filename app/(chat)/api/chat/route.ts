@@ -1,4 +1,3 @@
-import { geolocation, ipAddress } from "@vercel/functions";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -8,7 +7,6 @@ import {
   streamText,
   toUIMessageStream,
 } from "ai";
-import { checkBotId } from "botid/server";
 import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
@@ -21,7 +19,7 @@ import {
   getCapabilities,
   getModelAvailability,
 } from "@/lib/ai/models";
-import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
+import { systemPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { editDocument } from "@/lib/ai/tools/edit-document";
@@ -45,7 +43,6 @@ import {
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/types";
 import { ChatbotError } from "@/lib/errors";
-import { checkIpRateLimit } from "@/lib/ratelimit";
 import type { ChatMessage, WaitingStatusData } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
@@ -97,18 +94,7 @@ export async function POST(request: Request) {
     const { id, message, messages, selectedChatModel, selectedVisibilityType } =
       requestBody;
 
-    const [botIdResult, session] = await Promise.all([
-      // This HUMAN bypass is development-only; production keeps BotID protection.
-      (process.env.NODE_ENV === "development"
-        ? checkBotId({ developmentOptions: { bypass: "HUMAN" } })
-        : checkBotId()
-      ).catch(() => null),
-      auth(),
-    ]);
-
-    if (botIdResult?.isBot) {
-      return new ChatbotError("forbidden:api").toResponse();
-    }
+    const session = await auth();
 
     if (!session?.user) {
       return new ChatbotError("unauthorized:chat").toResponse();
@@ -117,8 +103,6 @@ export async function POST(request: Request) {
     const chatModel = allowedModelIds.has(selectedChatModel)
       ? selectedChatModel
       : DEFAULT_CHAT_MODEL;
-
-    await checkIpRateLimit(ipAddress(request));
 
     const userType: UserType = session.user.type;
 
@@ -204,15 +188,6 @@ export async function POST(request: Request) {
         message as ChatMessage,
       ];
     }
-
-    const { longitude, latitude, city, country } = geolocation(request);
-
-    const requestHints: RequestHints = {
-      city,
-      country,
-      latitude,
-      longitude,
-    };
 
     if (message?.role === "user") {
       await saveMessages({
@@ -314,7 +289,7 @@ export async function POST(request: Request) {
                   "updateDocument",
                   "requestSuggestions",
                 ],
-          instructions: systemPrompt({ requestHints, supportsTools }),
+          instructions: systemPrompt({ supportsTools }),
           maxRetries: 1,
           messages: modelMessages,
           model: getLanguageModel(chatModel),
@@ -443,22 +418,11 @@ export async function POST(request: Request) {
       stream,
     });
   } catch (error) {
-    const vercelId = request.headers.get("x-vercel-id");
-
     if (error instanceof ChatbotError) {
       return error.toResponse();
     }
 
-    if (
-      error instanceof Error &&
-      error.message?.includes(
-        "AI Gateway requires a valid credit card on file to service requests"
-      )
-    ) {
-      return new ChatbotError("bad_request:activate_gateway").toResponse();
-    }
-
-    console.error("Unhandled error in chat API:", error, { vercelId });
+    console.error("Unhandled error in chat API:", error);
     return new ChatbotError("offline:chat").toResponse();
   }
 }

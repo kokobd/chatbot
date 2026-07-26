@@ -166,6 +166,5 @@ fn create_iap_provider() -> Result<Arc<dyn IapIdentityProvider>, IapIdentityProv
 
 fn is_production_environment() -> bool {
     matches!(std::env::var("NODE_ENV").as_deref(), Ok("production"))
-        || matches!(std::env::var("VERCEL_ENV").as_deref(), Ok("production"))
         || std::env::var_os("K_SERVICE").is_some()
 }

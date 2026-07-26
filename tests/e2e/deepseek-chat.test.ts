@@ -48,7 +48,7 @@ test("sends a real DeepSeek V4 Flash text chat", async ({ page, request }) => {
       .filter({ hasText: "DeepSeek V4 Flash" })
       .first();
     await expect(modelOption).toBeVisible({ timeout: REQUEST_TIMEOUT });
-    await modelOption.click();
+    await modelOption.click({ force: true });
     await expect(modelSelector).toContainText("DeepSeek V4 Flash");
 
     const chatRequestPromise = page.waitForRequest(

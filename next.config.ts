@@ -1,4 +1,3 @@
-import { withBotId } from "botid/next/config";
 import type { NextConfig } from "next";
 
 const basePath = process.env.IS_DEMO === "1" ? "/demo" : "";
@@ -33,9 +32,6 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
-        hostname: "avatar.vercel.sh",
-      },
-      {
         hostname: "storage.googleapis.com",
         protocol: "https",
       },
@@ -52,4 +48,4 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@chatbot/native"],
 };
 
-export default withBotId(nextConfig);
+export default nextConfig;
