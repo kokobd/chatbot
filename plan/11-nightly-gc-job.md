@@ -14,8 +14,9 @@ application has already hidden through tombstones or head-pointer changes.
 ## Scope
 
 - Build a standalone job entrypoint with the shared Rust Firestore client and
-  domain cleanup rules. It must not depend on N-API or the main Node.js
-  process.
+  application cleanup ports/rules selected by its own composition root. Cleanup
+  ports expose stable application errors and Firestore mapping remains in
+  infrastructure. It must not depend on N-API or the main Node.js process.
 - Purge chats marked `deleting`/`deleted`: messages, votes, streams, then the
   parent chat document.
 - Purge artifact versions and suggestions marked unreachable after the
@@ -24,6 +25,15 @@ application has already hidden through tombstones or head-pointer changes.
   development default and a longer production value.
 - Process data in bounded pages and batches, persist or recompute progress from
   document state, and make every operation idempotent after interruption.
+- Apply the same infrastructure write contract as the web repositories:
+  distinguish setup, commit, and post-commit conversion failures; reconcile
+  only ambiguous deletes or claims; preserve `OutcomeUnknown` with any failed
+  reconciliation attached; and treat known not-found, permission, and
+  precondition outcomes according to explicit cleanup policy rather than
+  blindly retrying them.
+- Never replay an ambiguous claim/delete batch. Reconcile claims by durable
+  token or revision, and reconcile deletes against the complete intended
+  document set.
 - Assume Cloud Run Job tasks and executions can overlap or retry. Use durable
   leases/claims or disjoint deterministic work partitions when needed; never
   coordinate cleanup with in-memory locks. A lease expiry must allow recovery
@@ -49,7 +59,7 @@ application has already hidden through tombstones or head-pointer changes.
 
 Test interrupted runs, repeated and overlapping runs, partial batches,
 grace-period protection, lease recovery, not-found deletes, orphaned
-subcollections, unreachable artifact versions, and multi-workspace isolation
-against a real GCP test database. The checkpoint is a deployable job whose
-retry leaves no duplicate effects and whose normal web requests perform no
-physical garbage collection.
+subcollections, unreachable artifact versions, ambiguous batch commits,
+reconciliation failures, and multi-workspace isolation against a real GCP test
+database. The checkpoint is a deployable job whose retry leaves no duplicate
+effects and whose normal web requests perform no physical garbage collection.

@@ -16,8 +16,11 @@ pattern and switch TypeScript callers without changing route behavior.
 - Update the chat route where message saves now require the authenticated user
   ID.
 - Preserve persistence error category and retryability through the N-API and
-  TypeScript compatibility adapter. Do not add client-side retries for
-  non-idempotent operations.
+  TypeScript compatibility adapter. Represent `OutcomeUnknown` and its
+  retryability/diagnostic information without exposing Firestore error types or
+  moving reconciliation into TypeScript. TypeScript must never retry
+  `OutcomeUnknown`; retries are allowed only for explicitly retryable,
+  non-ambiguous categories under the operation’s policy.
 - Preserve Firestore timestamp precision and cursor opacity across the boundary;
   JavaScript `Date` and serialized cursors must not silently round or rebuild
   `(createdAt, id)` positions.
@@ -28,6 +31,8 @@ pattern and switch TypeScript callers without changing route behavior.
 
 Run Rust application tests, N-API boundary tests, TypeScript type checking, and
 the existing route/e2e tests against Firestore. Include retryable and
-non-retryable failures, cross-instance duplicate/replay scenarios, and
-timestamp/cursor round trips. Error categories, timestamp precision, nullable
-values, and arbitrary JSON must survive the boundary unchanged.
+non-retryable failures, cross-instance duplicate and permitted-replay scenarios, and
+timestamp/cursor round trips. Include ambiguous-write results whose
+reconciliation succeeds, is missing, or fails. Error categories, retryability,
+reconciliation diagnostics, timestamp precision, nullable values, and
+arbitrary JSON must survive the boundary unchanged.

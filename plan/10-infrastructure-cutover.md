@@ -20,10 +20,14 @@ Make Firestore the only runtime database and remove obsolete Postgres setup.
 - Document the Cloud Run distributed-runtime contract: reuse a Firestore client
   per process instance for performance, but assume multiple instances and
   revisions coexist; correctness must come from Firestore transactions,
-  preconditions, deterministic IDs, and idempotent retries, never process-local
-  locks or concurrency limits.
-- Configure request deadlines, retry/ambiguous-write metrics, and alerting for
-  Firestore unavailable, conflict, and failed-precondition categories.
+  preconditions, deterministic IDs, and explicit retry/reconciliation policy,
+  never process-local locks or concurrency limits.
+- Configure request deadlines and metrics for setup failures, known commit
+  failures, ambiguous-write detection, reconciliation outcomes (`proved`,
+  `missing/mismatched`, and `read_failed`), and final `Unavailable`,
+  `Conflict`, `FailedPrecondition`, `PermissionDenied`, and `OutcomeUnknown`
+  categories. Alert on reconciliation failures without treating known
+  permission or precondition failures as retryable outages.
 - Document that runtime deletion only writes tombstones. It must not start
   recursive cleanup in the Node.js process.
 - Provision or document the separate Cloud Run Job identity and Firestore IAM
@@ -34,6 +38,7 @@ Make Firestore the only runtime database and remove obsolete Postgres setup.
 Run Terraform format/validate/plan against the test and production workspaces,
 native tests with the `.env`-configured named test database, TypeScript checks,
 and the full Firestore-backed Playwright suite. Include rolling-revision and
-retry/replay checks. Search the repository to confirm no runtime Postgres or
-Drizzle references remain, no correctness lock is process-local, and no Node.js
-request path owns garbage-collection work.
+known-retry and permitted-replay checks, including ambiguous commits and failed
+reconciliation reads. Search the repository to confirm no runtime Postgres or Drizzle
+references remain, no correctness lock is process-local, and no Node.js request
+path owns garbage-collection work.

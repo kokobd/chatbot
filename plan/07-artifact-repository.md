@@ -8,6 +8,8 @@ cleanup to Firestore.
 ## Scope
 
 - Define `ArtifactRepository` over artifact and document-version domain types.
+- Keep the port over validated application/domain values with stable repository
+  errors; use infrastructure-owned DTOs and provider mappings for Firestore.
 - Store `artifacts/{artifactId}` metadata and nested `versions/{versionId}`.
 - Add a stable `version_id` to the document-version domain/application value
   (serialized as `versionId`) and use explicit infrastructure DTOs for artifact
@@ -15,9 +17,16 @@ cleanup to Firestore.
 - Store immutable versions and maintain `headVersionId` transactionally when
   appending or manually editing a version. Never query the latest version and
   update it as two independent operations.
-- Allocate version IDs before transaction attempts. Transaction retries must be
-  replay-safe, and duplicate version creates must compare immutable content
-  rather than overwrite it.
+- Separate transaction setup, commit, and post-commit conversion errors. The
+  adapter reconciles only ambiguous commits before returning `OutcomeUnknown`;
+  known permission and failed-precondition errors return directly. A known
+  create conflict may trigger explicit application-level duplicate-ID winner
+  comparison; this is not ambiguous-write reconciliation. Reconciliation
+  failures remain attached to the original unknown outcome.
+- Allocate version IDs before any permitted transaction retry. Retry only known
+  setup/pre-commit failures under an operation-specific policy; never replay a
+  transaction after `OutcomeUnknown`. Duplicate version creates must compare
+  immutable content rather than overwrite it.
 - Preserve ascending history, latest lookup, ownership fields, and deletion of
   versions after a timestamp by marking unreachable versions for cleanup. Reads
   must hide marked versions immediately; physical cleanup belongs to the
@@ -32,4 +41,6 @@ Cover first-version creation, multiple versions, latest updates, equal-time
 versions, ownership data, not-found behavior, transaction retries, concurrent
 version creation from independent instances, duplicate-ID payload conflicts,
 head changes, and logical timestamp-based cleanup. Verify stale transactions
-cannot move the head backward.
+cannot move the head backward. Include transaction setup failures, known
+precondition failures without rereads, ambiguous commits, missing records, and
+reconciliation-read failures.

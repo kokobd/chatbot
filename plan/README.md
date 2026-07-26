@@ -24,9 +24,18 @@ only for performance and must tolerate independent instances and eviction.
 
 All cross-request coordination must be provided by Firestore deterministic
 document IDs, transactions, write preconditions, field masks, or server-side
-timestamps. Retried writes must be idempotent or reconcile an ambiguous result
-before returning an error. Persistence errors must preserve whether a failure
-is retryable.
+timestamps. Any permitted retry must be replay-safe. An ambiguous transaction
+or batch must not be retried; the adapter reconciles it and returns
+`OutcomeUnknown` unless the complete intended result is proven. Repository
+ports expose stable application-layer errors, not Firestore types.
+Infrastructure adapters classify request/setup,
+commit, and post-commit conversion failures separately: only genuinely
+ambiguous writes become `OutcomeUnknown`. Adapters own reconciliation of those
+outcomes, attach reconciliation failures to the original unknown error, and do
+not reconcile known permission, precondition, or invalid-input failures.
+Application services must not repeat adapter-owned ambiguous-write
+reconciliation. Persistence errors must preserve whether a failure is
+retryable.
 
 Firestore schemas belong to infrastructure DTOs with explicit wire field names
 and conversions to validated domain types. Do not use provider-independent
@@ -37,6 +46,10 @@ Repository tests must cover independent repository/service instances and
 cross-instance interleavings using the real Terraform-managed test database
 where practical. Test-only synchronization primitives are acceptable for
 forcing races in fakes; they must not appear in production repository state.
+Every repository slice must test both known-error non-reconciliation and
+ambiguous-write reconciliation, including a failed reconciliation read. Batch
+and transaction operations must not be blindly replayed after an ambiguous
+commit; they need deterministic, operation-specific reconciliation.
 
 Repositories follow aggregate ownership rather than SQL table count:
 
