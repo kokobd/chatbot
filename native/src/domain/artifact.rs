@@ -35,6 +35,7 @@ pub struct Artifact {
     pub kind: ArtifactKind,
     pub content: Option<JsonValue>,
     pub created_at: DateTime<Utc>,
+    pub head_version_id: Option<String>,
 }
 
 impl Artifact {
@@ -57,6 +58,17 @@ impl Artifact {
             kind,
             content,
             created_at,
+            head_version_id: None,
         })
+    }
+
+    pub fn with_head_version_id(
+        mut self,
+        version_id: Option<impl AsRef<str>>,
+    ) -> Result<Self, ValidationError> {
+        self.head_version_id = version_id
+            .map(|version_id| validate_identifier(version_id.as_ref()))
+            .transpose()?;
+        Ok(self)
     }
 }

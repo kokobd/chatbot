@@ -3,13 +3,16 @@ pub mod domain;
 mod infrastructure;
 mod service;
 
+pub use application::artifact_service::{ArtifactService, ArtifactServiceError};
 pub use application::chat_service::{ChatService, ChatServiceError};
 pub use application::message_service::{MessageService, MessageServiceError};
 pub use application::repository::{
-    ChatHistoryCursor, ChatHistoryPage, ChatHistoryQuery, ChatRepository, ChatTitle, Email,
-    IapUser, MessageParts, MessageQuery, MessageRepository, PersistenceError, UserRepository,
+    ArtifactRepository, ChatHistoryCursor, ChatHistoryPage, ChatHistoryQuery, ChatRepository,
+    ChatTitle, Email, IapUser, MessageParts, MessageQuery, MessageRepository, PersistenceError,
+    UserRepository,
 };
 pub use application::user_service::{UserService, UserServiceError};
+pub use infrastructure::firestore_artifact_repository::FirestoreArtifactRepository;
 pub use infrastructure::firestore_chat_repository::FirestoreChatRepository;
 pub use infrastructure::firestore_message_repository::FirestoreMessageRepository;
 pub use infrastructure::firestore_user_repository::FirestoreUserRepository;

@@ -1,3 +1,4 @@
+pub mod artifact_service;
 pub mod chat_service;
 pub mod file_upload;
 pub mod iap_authentication;

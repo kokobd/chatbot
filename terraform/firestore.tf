@@ -72,12 +72,29 @@ resource "google_firestore_index" "messages_usage" {
   }
 }
 
+resource "google_firestore_index" "artifact_versions_history" {
+  project     = var.project_id
+  database    = google_firestore_database.chatbot.name
+  collection  = "versions"
+  query_scope = "COLLECTION"
+  skip_wait   = true
+
+  fields {
+    field_path = "createdAt"
+    order      = "ASCENDING"
+  }
+
+  fields {
+    field_path = "versionId"
+    order      = "ASCENDING"
+  }
+}
+
 resource "google_firestore_field" "messages_parts" {
   project    = var.project_id
   database   = google_firestore_database.chatbot.name
   collection = "messages"
   field      = "parts"
-  skip_wait  = true
 
   index_config {}
 }
@@ -87,7 +104,6 @@ resource "google_firestore_field" "messages_attachments" {
   database   = google_firestore_database.chatbot.name
   collection = "messages"
   field      = "attachments"
-  skip_wait  = true
 
   index_config {}
 }
