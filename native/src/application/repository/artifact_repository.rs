@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use crate::domain::{Artifact, DocumentVersion};
+use crate::domain::{Artifact, DocumentVersion, Suggestion};
 
 use super::error::PersistenceError;
 
@@ -50,4 +50,16 @@ pub trait ArtifactRepository: Send + Sync {
         artifact_id: &str,
         timestamp: DateTime<Utc>,
     ) -> Result<Vec<DocumentVersion>, PersistenceError>;
+
+    async fn save_suggestions(
+        &self,
+        user_id: &str,
+        suggestions: &[Suggestion],
+    ) -> Result<Vec<Suggestion>, PersistenceError>;
+
+    async fn get_suggestions_by_document_id(
+        &self,
+        user_id: &str,
+        document_id: &str,
+    ) -> Result<Vec<Suggestion>, PersistenceError>;
 }

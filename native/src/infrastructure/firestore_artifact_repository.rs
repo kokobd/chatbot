@@ -6,12 +6,15 @@ use firestore::{
     FirestoreTransactionOps, FirestoreWritePrecondition,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 
 use crate::application::repository::{ArtifactRepository, PersistenceError};
-use crate::domain::{Artifact, ArtifactKind, DocumentVersion};
+use crate::domain::{Artifact, ArtifactKind, DocumentVersion, Suggestion};
 
 pub const ARTIFACTS_COLLECTION: &str = "artifacts";
 pub const VERSIONS_COLLECTION: &str = "versions";
+pub const SUGGESTIONS_COLLECTION: &str = "suggestions";
+const MAX_TRANSACTION_WRITES: usize = 500;
 const MAX_FIRESTORE_DOCUMENT_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -49,6 +52,34 @@ struct ArtifactHeadUpdate {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 struct VersionCleanupUpdate {
+    #[serde(rename = "cleanupAt")]
+    cleanup_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub(crate) struct SuggestionDocument {
+    pub(crate) id: String,
+    #[serde(rename = "documentId")]
+    pub(crate) document_id: String,
+    #[serde(rename = "versionId")]
+    pub(crate) version_id: String,
+    #[serde(rename = "userId")]
+    pub(crate) user_id: String,
+    #[serde(rename = "originalText")]
+    pub(crate) original_text: String,
+    #[serde(rename = "suggestedText")]
+    pub(crate) suggested_text: String,
+    pub(crate) description: Option<String>,
+    #[serde(rename = "isResolved")]
+    pub(crate) is_resolved: bool,
+    #[serde(rename = "createdAt")]
+    pub(crate) created_at: DateTime<Utc>,
+    #[serde(rename = "cleanupAt")]
+    pub(crate) cleanup_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct SuggestionCleanupUpdate {
     #[serde(rename = "cleanupAt")]
     cleanup_at: DateTime<Utc>,
 }
@@ -155,6 +186,68 @@ impl VersionDocument {
             && self.document_id == version.document_id
             && self.created_at == version.created_at
             && self.content == version.content
+    }
+}
+
+impl SuggestionDocument {
+    fn from_suggestion(suggestion: &Suggestion) -> Result<Self, PersistenceError> {
+        validate_document_id(&suggestion.id, "suggestion")?;
+        validate_document_id(&suggestion.document_id, "artifact")?;
+        validate_document_id(&suggestion.version_id, "version")?;
+        validate_identifier(&suggestion.user_id)?;
+        let document = Self {
+            id: suggestion.id.clone(),
+            document_id: suggestion.document_id.clone(),
+            version_id: suggestion.version_id.clone(),
+            user_id: suggestion.user_id.clone(),
+            original_text: suggestion.original_text.clone(),
+            suggested_text: suggestion.suggested_text.clone(),
+            description: suggestion.description.clone(),
+            is_resolved: suggestion.is_resolved,
+            created_at: suggestion.created_at,
+            cleanup_at: None,
+        };
+        validate_document_size(&document, "suggestion")?;
+        Ok(document)
+    }
+
+    fn into_suggestion(
+        self,
+        document_id: &str,
+        suggestion_id: &str,
+    ) -> Result<Suggestion, PersistenceError> {
+        validate_document_id(document_id, "artifact")
+            .map_err(|error| PersistenceError::CorruptData(error.to_string()))?;
+        validate_document_id(suggestion_id, "suggestion")
+            .map_err(|error| PersistenceError::CorruptData(error.to_string()))?;
+        if self.id != suggestion_id || self.document_id != document_id {
+            return Err(PersistenceError::CorruptData(
+                "suggestion identity does not match its document path".to_string(),
+            ));
+        }
+        Suggestion::new(
+            self.id,
+            self.document_id,
+            self.version_id,
+            self.user_id,
+            self.original_text,
+            self.suggested_text,
+            self.description,
+            self.created_at,
+        )
+        .map(|suggestion| suggestion.with_resolved(self.is_resolved))
+        .map_err(|error| PersistenceError::CorruptData(error.to_string()))
+    }
+
+    fn has_same_immutable_payload(&self, suggestion: &Suggestion) -> bool {
+        self.id == suggestion.id
+            && self.document_id == suggestion.document_id
+            && self.version_id == suggestion.version_id
+            && self.user_id == suggestion.user_id
+            && self.original_text == suggestion.original_text
+            && self.suggested_text == suggestion.suggested_text
+            && self.description == suggestion.description
+            && self.created_at == suggestion.created_at
     }
 }
 
@@ -280,6 +373,208 @@ impl FirestoreArtifactRepository {
         FirestoreDb::deserialize_doc_to::<VersionDocument>(&document)
             .map(Some)
             .map_err(|error| map_firestore_error(error, operation))
+    }
+
+    async fn read_suggestion_in(
+        db: &FirestoreDb,
+        parent: &str,
+        suggestion_id: &str,
+        operation: ArtifactOperation,
+    ) -> Result<Option<SuggestionDocument>, PersistenceError> {
+        let document = match db
+            .get_doc_at(parent, SUGGESTIONS_COLLECTION, suggestion_id, None)
+            .await
+        {
+            Ok(document) => document,
+            Err(FirestoreError::DataNotFoundError(_)) => return Ok(None),
+            Err(error) => return Err(map_firestore_error(error, operation)),
+        };
+        FirestoreDb::deserialize_doc_to::<SuggestionDocument>(&document)
+            .map(Some)
+            .map_err(|error| map_firestore_error(error, operation))
+    }
+
+    async fn read_suggestions_in(
+        db: &FirestoreDb,
+        parent: &str,
+        operation: ArtifactOperation,
+    ) -> Result<Vec<SuggestionDocument>, PersistenceError> {
+        db.fluent()
+            .select()
+            .from(SUGGESTIONS_COLLECTION)
+            .parent(parent)
+            .obj()
+            .query()
+            .await
+            .map_err(|error| map_firestore_error(error, operation))
+    }
+
+    async fn execute_save_suggestions(
+        &self,
+        user_id: &str,
+        batch: &[Suggestion],
+    ) -> Result<Vec<Suggestion>, BatchFailure> {
+        let mut transaction = self.db.begin_transaction().await.map_err(|error| {
+            BatchFailure::Known(map_firestore_error(
+                error,
+                ArtifactOperation::TransactionSetup,
+            ))
+        })?;
+        let transaction_db =
+            self.db
+                .clone_with_consistency_selector(FirestoreConsistencySelector::Transaction(
+                    transaction.transaction_id().clone(),
+                ));
+        let mut artifacts: HashMap<String, ArtifactDocument> = HashMap::new();
+        let mut stored = Vec::with_capacity(batch.len());
+        let mut writes = 0usize;
+
+        for suggestion in batch {
+            let parent = self
+                .version_parent(&suggestion.document_id)
+                .map_err(BatchFailure::Known)?;
+            let artifact_document = if let Some(document) = artifacts.get(&suggestion.document_id) {
+                document.clone()
+            } else {
+                let document = Self::read_artifact_in(
+                    &transaction_db,
+                    &suggestion.document_id,
+                    ArtifactOperation::TransactionRead,
+                )
+                .await
+                .map_err(BatchFailure::Known)?
+                .ok_or_else(|| BatchFailure::Known(PersistenceError::NotFound))?;
+                artifacts.insert(suggestion.document_id.clone(), document.clone());
+                document
+            };
+            if artifact_document.user_id != user_id {
+                transaction.rollback().await.ok();
+                return Err(BatchFailure::Known(PersistenceError::NotFound));
+            }
+
+            let Some(version_document) = Self::read_version_in(
+                &transaction_db,
+                parent.as_str(),
+                &suggestion.version_id,
+                ArtifactOperation::TransactionRead,
+            )
+            .await
+            .map_err(BatchFailure::Known)?
+            else {
+                transaction.rollback().await.ok();
+                return Err(BatchFailure::Known(PersistenceError::NotFound));
+            };
+            version_document
+                .clone()
+                .into_version(&suggestion.document_id, &suggestion.version_id)
+                .map_err(BatchFailure::Known)?;
+            if version_document.cleanup_at.is_some()
+                || version_document.document_id != suggestion.document_id
+            {
+                transaction.rollback().await.ok();
+                return Err(BatchFailure::Known(PersistenceError::NotFound));
+            }
+
+            let existing = Self::read_suggestion_in(
+                &transaction_db,
+                parent.as_str(),
+                &suggestion.id,
+                ArtifactOperation::TransactionRead,
+            )
+            .await
+            .map_err(BatchFailure::Known)?;
+            if let Some(existing) = existing {
+                let existing_suggestion = existing
+                    .clone()
+                    .into_suggestion(&suggestion.document_id, &suggestion.id)
+                    .map_err(BatchFailure::Known)?;
+                if existing.cleanup_at.is_some() || !existing.has_same_immutable_payload(suggestion)
+                {
+                    transaction.rollback().await.ok();
+                    return Err(BatchFailure::Known(PersistenceError::Conflict));
+                }
+                stored.push(existing_suggestion);
+                continue;
+            }
+
+            let intended =
+                SuggestionDocument::from_suggestion(suggestion).map_err(BatchFailure::Known)?;
+            transaction
+                .update_object_at(
+                    parent.as_str(),
+                    SUGGESTIONS_COLLECTION,
+                    &suggestion.id,
+                    &intended,
+                    None,
+                    Some(FirestoreWritePrecondition::Exists(false)),
+                    vec![],
+                )
+                .map_err(|error| {
+                    BatchFailure::Known(map_firestore_error(
+                        error,
+                        ArtifactOperation::TransactionSetup,
+                    ))
+                })?;
+            writes += 1;
+            stored.push(suggestion.clone());
+        }
+
+        if writes == 0 {
+            transaction.rollback().await.ok();
+            return Ok(stored);
+        }
+        let response = transaction.commit().await.map_err(|error| {
+            let mapped = map_firestore_error(error, ArtifactOperation::TransactionCommit);
+            if is_ambiguous_write(&mapped) {
+                BatchFailure::Unknown(mapped)
+            } else {
+                BatchFailure::Known(mapped)
+            }
+        })?;
+        if response.write_results.len() != writes {
+            return Err(BatchFailure::Unknown(unknown_outcome(
+                "suggestion batch committed with an incomplete response",
+                false,
+            )));
+        }
+        Ok(stored)
+    }
+
+    async fn reconcile_suggestions(
+        &self,
+        batch: &[Suggestion],
+        original: PersistenceError,
+    ) -> Result<Vec<Suggestion>, PersistenceError> {
+        let mut result = Vec::with_capacity(batch.len());
+        for suggestion in batch {
+            let parent = match self.version_parent(&suggestion.document_id) {
+                Ok(parent) => parent,
+                Err(error) => return Err(original.with_reconciliation_failure(error)),
+            };
+            let stored = match Self::read_suggestion_in(
+                &self.db,
+                parent.as_str(),
+                &suggestion.id,
+                ArtifactOperation::ReconcileRead,
+            )
+            .await
+            {
+                Ok(Some(document)) => {
+                    if document.cleanup_at.is_some()
+                        || !document.has_same_immutable_payload(suggestion)
+                    {
+                        return Err(original);
+                    }
+                    document
+                        .into_suggestion(&suggestion.document_id, &suggestion.id)
+                        .map_err(|error| original.clone().with_reconciliation_failure(error))?
+                }
+                Ok(None) => return Err(original),
+                Err(error) => return Err(original.with_reconciliation_failure(error)),
+            };
+            result.push(stored);
+        }
+        Ok(result)
     }
 
     async fn execute_save_version(
@@ -558,8 +853,27 @@ impl FirestoreArtifactRepository {
             .filter(|version| marked_ids.contains(version.version_id.as_str()))
             .cloned()
             .collect();
+        let cleanup_version_ids: HashSet<_> = documents
+            .iter()
+            .filter(|document| document.created_at > timestamp)
+            .map(|document| document.version_id.as_str())
+            .collect();
+        let suggestion_documents = Self::read_suggestions_in(
+            &transaction_db,
+            parent.as_str(),
+            ArtifactOperation::TransactionRead,
+        )
+        .await
+        .map_err(TransactionFailure::Known)?;
+        let suggestions_to_mark: Vec<_> = suggestion_documents
+            .iter()
+            .filter(|suggestion| {
+                suggestion.cleanup_at.is_none()
+                    && cleanup_version_ids.contains(suggestion.version_id.as_str())
+            })
+            .collect();
         if artifact_document.head_version_id.is_none() {
-            if marked.is_empty() {
+            if marked.is_empty() && suggestions_to_mark.is_empty() {
                 transaction.rollback().await.ok();
                 return Ok(Vec::new());
             }
@@ -574,6 +888,27 @@ impl FirestoreArtifactRepository {
                         VERSIONS_COLLECTION,
                         &version.version_id,
                         &update,
+                        Some(vec!["cleanupAt".to_string()]),
+                        Some(FirestoreWritePrecondition::Exists(true)),
+                        vec![],
+                    )
+                    .map_err(|error| {
+                        TransactionFailure::Known(map_firestore_error(
+                            error,
+                            ArtifactOperation::TransactionSetup,
+                        ))
+                    })?;
+                writes += 1;
+            }
+            for suggestion in &suggestions_to_mark {
+                transaction
+                    .update_object_at(
+                        parent.as_str(),
+                        SUGGESTIONS_COLLECTION,
+                        &suggestion.id,
+                        &SuggestionCleanupUpdate {
+                            cleanup_at: Utc::now(),
+                        },
                         Some(vec!["cleanupAt".to_string()]),
                         Some(FirestoreWritePrecondition::Exists(true)),
                         vec![],
@@ -609,7 +944,7 @@ impl FirestoreArtifactRepository {
             let head_is_marked = marked
                 .iter()
                 .any(|version| version.version_id == current_head);
-            if marked.is_empty() {
+            if marked.is_empty() && suggestions_to_mark.is_empty() {
                 transaction.rollback().await.ok();
                 return Ok(Vec::new());
             }
@@ -624,6 +959,27 @@ impl FirestoreArtifactRepository {
                         VERSIONS_COLLECTION,
                         &version.version_id,
                         &update,
+                        Some(vec!["cleanupAt".to_string()]),
+                        Some(FirestoreWritePrecondition::Exists(true)),
+                        vec![],
+                    )
+                    .map_err(|error| {
+                        TransactionFailure::Known(map_firestore_error(
+                            error,
+                            ArtifactOperation::TransactionSetup,
+                        ))
+                    })?;
+                writes += 1;
+            }
+            for suggestion in &suggestions_to_mark {
+                transaction
+                    .update_object_at(
+                        parent.as_str(),
+                        SUGGESTIONS_COLLECTION,
+                        &suggestion.id,
+                        &SuggestionCleanupUpdate {
+                            cleanup_at: Utc::now(),
+                        },
                         Some(vec!["cleanupAt".to_string()]),
                         Some(FirestoreWritePrecondition::Exists(true)),
                         vec![],
@@ -685,6 +1041,12 @@ async fn commit_delete_transaction<'a>(
 
 #[derive(Debug)]
 enum TransactionFailure {
+    Known(PersistenceError),
+    Unknown(PersistenceError),
+}
+
+#[derive(Debug)]
+enum BatchFailure {
     Known(PersistenceError),
     Unknown(PersistenceError),
 }
@@ -864,6 +1226,113 @@ impl ArtifactRepository for FirestoreArtifactRepository {
         }
         unreachable!("cleanup transaction retry loop always returns")
     }
+
+    async fn save_suggestions(
+        &self,
+        user_id: &str,
+        suggestions: &[Suggestion],
+    ) -> Result<Vec<Suggestion>, PersistenceError> {
+        validate_identifier(user_id)?;
+        let mut unique = Vec::with_capacity(suggestions.len());
+        let mut by_key = HashMap::new();
+        for suggestion in suggestions {
+            if suggestion.user_id != user_id {
+                return Err(PersistenceError::NotFound);
+            }
+            SuggestionDocument::from_suggestion(suggestion)?;
+            let key = (suggestion.document_id.clone(), suggestion.id.clone());
+            if let Some(index) = by_key.get(&key) {
+                if !SuggestionDocument::from_suggestion(&unique[*index])?
+                    .has_same_immutable_payload(suggestion)
+                {
+                    return Err(PersistenceError::Conflict);
+                }
+                continue;
+            }
+            by_key.insert(key, unique.len());
+            unique.push(suggestion.clone());
+        }
+
+        let mut saved = Vec::with_capacity(unique.len());
+        for batch in unique.chunks(MAX_TRANSACTION_WRITES) {
+            for attempt in 0..3 {
+                match self.execute_save_suggestions(user_id, batch).await {
+                    Ok(suggestions) => {
+                        saved.extend(suggestions);
+                        break;
+                    }
+                    Err(BatchFailure::Known(error))
+                        if attempt < 2 && is_retryable_setup(&error) =>
+                    {
+                        continue;
+                    }
+                    Err(BatchFailure::Known(error)) => return Err(error),
+                    Err(BatchFailure::Unknown(error)) => {
+                        saved.extend(self.reconcile_suggestions(batch, error).await?);
+                        break;
+                    }
+                }
+            }
+        }
+
+        let saved_by_key: HashMap<_, _> = saved
+            .into_iter()
+            .map(|suggestion| {
+                (
+                    (suggestion.document_id.clone(), suggestion.id.clone()),
+                    suggestion,
+                )
+            })
+            .collect();
+        suggestions
+            .iter()
+            .map(|suggestion| {
+                saved_by_key
+                    .get(&(suggestion.document_id.clone(), suggestion.id.clone()))
+                    .cloned()
+                    .ok_or_else(|| PersistenceError::Internal {
+                        message: "suggestion batch progress could not be reconstructed".to_string(),
+                        retryable: false,
+                    })
+            })
+            .collect()
+    }
+
+    async fn get_suggestions_by_document_id(
+        &self,
+        user_id: &str,
+        document_id: &str,
+    ) -> Result<Vec<Suggestion>, PersistenceError> {
+        let Some(_) = self
+            .owned_artifact(user_id, document_id, ArtifactOperation::Read)
+            .await?
+        else {
+            return Err(PersistenceError::NotFound);
+        };
+        let parent = self.version_parent(document_id)?;
+        let documents = Self::read_suggestions_in(
+            &self.db,
+            parent.as_str(),
+            ArtifactOperation::SuggestionQuery,
+        )
+        .await?;
+        let mut suggestions = Vec::with_capacity(documents.len());
+        for document in documents {
+            if document.cleanup_at.is_some() {
+                continue;
+            }
+            let suggestion_id = document.id.clone();
+            let suggestion = document.into_suggestion(document_id, &suggestion_id)?;
+            if suggestion.user_id != user_id {
+                return Err(PersistenceError::CorruptData(
+                    "suggestion ownership binding does not match its artifact".to_string(),
+                ));
+            }
+            suggestions.push(suggestion);
+        }
+        suggestions.sort_by_key(|suggestion| (suggestion.created_at, suggestion.id.clone()));
+        Ok(suggestions)
+    }
 }
 
 impl FirestoreArtifactRepository {
@@ -934,6 +1403,21 @@ impl FirestoreArtifactRepository {
         {
             return Err(original);
         }
+        let suggestions = match self
+            .get_all_suggestions(artifact_id, ArtifactOperation::ReconcileRead)
+            .await
+        {
+            Ok(suggestions) => suggestions,
+            Err(error) => return Err(original.with_reconciliation_failure(error)),
+        };
+        if suggestions.iter().any(|suggestion| {
+            intended
+                .iter()
+                .any(|version| version.version_id == suggestion.version_id)
+                && suggestion.cleanup_at.is_none()
+        }) {
+            return Err(original);
+        }
         intended
             .into_iter()
             .map(|version| {
@@ -960,6 +1444,15 @@ impl FirestoreArtifactRepository {
             .query()
             .await
             .map_err(|error| map_firestore_error(error, operation))
+    }
+
+    async fn get_all_suggestions(
+        &self,
+        artifact_id: &str,
+        operation: ArtifactOperation,
+    ) -> Result<Vec<SuggestionDocument>, PersistenceError> {
+        let parent = self.version_parent(artifact_id)?;
+        Self::read_suggestions_in(&self.db, parent.as_str(), operation).await
     }
 }
 
@@ -1062,6 +1555,7 @@ enum ArtifactOperation {
     TransactionRead,
     TransactionCommit,
     VersionQuery,
+    SuggestionQuery,
     ReconcileRead,
 }
 
@@ -1083,6 +1577,7 @@ fn map_firestore_error(error: FirestoreError, operation: ArtifactOperation) -> P
             | ArtifactOperation::ConflictRead
             | ArtifactOperation::TransactionRead
             | ArtifactOperation::VersionQuery
+            | ArtifactOperation::SuggestionQuery
             | ArtifactOperation::ReconcileRead => PersistenceError::CorruptData(error.to_string()),
             _ => PersistenceError::Serialization(error.to_string()),
         },
@@ -1094,6 +1589,7 @@ fn map_firestore_error(error: FirestoreError, operation: ArtifactOperation) -> P
             | ArtifactOperation::ConflictRead
             | ArtifactOperation::TransactionRead
             | ArtifactOperation::VersionQuery
+            | ArtifactOperation::SuggestionQuery
             | ArtifactOperation::ReconcileRead => PersistenceError::CorruptData(error.to_string()),
             _ => PersistenceError::Serialization(error.to_string()),
         },
@@ -1198,6 +1694,47 @@ mod tests {
         assert_eq!(document.version_id, "version-1");
         assert_eq!(document.document_id, "artifact-1");
         assert!(document.has_same_immutable_payload(&version("version-1")));
+    }
+
+    fn suggestion(id: &str) -> Suggestion {
+        Suggestion::new(
+            id,
+            "artifact-1",
+            "version-1",
+            "user-1",
+            "original",
+            "suggested",
+            None,
+            Utc.timestamp_opt(1, 0).unwrap(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn suggestion_dto_uses_explicit_wire_fields_and_preserves_resolution() {
+        let suggestion = suggestion("suggestion-1").with_resolved(true);
+        let document = SuggestionDocument::from_suggestion(&suggestion).unwrap();
+        let encoded = serde_json::to_value(&document).unwrap();
+        assert_eq!(encoded["documentId"], "artifact-1");
+        assert_eq!(encoded["versionId"], "version-1");
+        assert_eq!(encoded["userId"], "user-1");
+        assert_eq!(encoded["originalText"], "original");
+        assert_eq!(encoded["suggestedText"], "suggested");
+        assert_eq!(encoded["isResolved"], true);
+        assert_eq!(
+            document
+                .into_suggestion("artifact-1", "suggestion-1")
+                .unwrap(),
+            suggestion
+        );
+    }
+
+    #[test]
+    fn suggestion_duplicates_compare_immutable_fields_but_keep_resolution_mutable() {
+        let left = suggestion("suggestion-1");
+        let right = left.clone().with_resolved(true);
+        let document = SuggestionDocument::from_suggestion(&left).unwrap();
+        assert!(document.has_same_immutable_payload(&right));
     }
 
     #[test]

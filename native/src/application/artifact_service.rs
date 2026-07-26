@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use thiserror::Error;
 
 use crate::application::repository::{ArtifactRepository, PersistenceError};
-use crate::domain::{Artifact, DocumentVersion, ValidationError};
+use crate::domain::{Artifact, DocumentVersion, Suggestion, ValidationError};
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ArtifactServiceError {
@@ -93,6 +93,28 @@ impl ArtifactService {
             .delete_document_versions_after(user_id, artifact_id, timestamp)
             .await?)
     }
+
+    pub async fn save_suggestions(
+        &self,
+        user_id: &str,
+        suggestions: &[Suggestion],
+    ) -> Result<Vec<Suggestion>, ArtifactServiceError> {
+        Ok(self
+            .repository
+            .save_suggestions(user_id, suggestions)
+            .await?)
+    }
+
+    pub async fn get_suggestions_by_document_id(
+        &self,
+        user_id: &str,
+        document_id: &str,
+    ) -> Result<Vec<Suggestion>, ArtifactServiceError> {
+        Ok(self
+            .repository
+            .get_suggestions_by_document_id(user_id, document_id)
+            .await?)
+    }
 }
 
 #[cfg(test)]
@@ -107,6 +129,7 @@ mod tests {
     struct FakeArtifactRepository {
         artifacts: Mutex<HashMap<String, Artifact>>,
         versions: Mutex<HashMap<String, DocumentVersion>>,
+        suggestions: Mutex<HashMap<String, Suggestion>>,
     }
 
     #[async_trait]
@@ -216,6 +239,50 @@ mod tests {
             });
             Ok(removed)
         }
+
+        async fn save_suggestions(
+            &self,
+            user_id: &str,
+            suggestions: &[Suggestion],
+        ) -> Result<Vec<Suggestion>, PersistenceError> {
+            if suggestions
+                .iter()
+                .any(|suggestion| suggestion.user_id != user_id)
+            {
+                return Err(PersistenceError::NotFound);
+            }
+            let mut stored = self.suggestions.lock().unwrap();
+            for suggestion in suggestions {
+                match stored.get(&suggestion.id) {
+                    Some(existing) if existing == suggestion => {}
+                    Some(_) => return Err(PersistenceError::Conflict),
+                    None => {
+                        stored.insert(suggestion.id.clone(), suggestion.clone());
+                    }
+                }
+            }
+            Ok(suggestions.to_vec())
+        }
+
+        async fn get_suggestions_by_document_id(
+            &self,
+            user_id: &str,
+            document_id: &str,
+        ) -> Result<Vec<Suggestion>, PersistenceError> {
+            if self.find_artifact(user_id, document_id).await?.is_none() {
+                return Err(PersistenceError::NotFound);
+            }
+            Ok(self
+                .suggestions
+                .lock()
+                .unwrap()
+                .values()
+                .filter(|suggestion| {
+                    suggestion.document_id == document_id && suggestion.user_id == user_id
+                })
+                .cloned()
+                .collect())
+        }
     }
 
     fn artifact() -> Artifact {
@@ -236,6 +303,20 @@ mod tests {
             "artifact-1",
             Utc.timestamp_opt(seconds, 0).unwrap(),
             Some(serde_json::json!({"version": id})),
+        )
+        .unwrap()
+    }
+
+    fn suggestion(id: &str) -> Suggestion {
+        Suggestion::new(
+            id,
+            "artifact-1",
+            "version-1",
+            "user-1",
+            "original",
+            "suggested",
+            Some("description".to_string()),
+            Utc.timestamp_opt(1, 0).unwrap(),
         )
         .unwrap()
     }
@@ -290,6 +371,29 @@ mod tests {
             Err(ArtifactServiceError::Persistence(
                 PersistenceError::Conflict
             ))
+        );
+    }
+
+    #[tokio::test]
+    async fn service_delegates_suggestion_batch_and_lookup() {
+        let repository = Arc::new(FakeArtifactRepository::default());
+        let service = ArtifactService::new(repository);
+        service.create_artifact(&artifact()).await.unwrap();
+
+        let suggestion = suggestion("suggestion-1");
+        assert_eq!(
+            service
+                .save_suggestions("user-1", std::slice::from_ref(&suggestion))
+                .await
+                .unwrap(),
+            vec![suggestion.clone()]
+        );
+        assert_eq!(
+            service
+                .get_suggestions_by_document_id("user-1", "artifact-1")
+                .await
+                .unwrap(),
+            vec![suggestion]
         );
     }
 }
