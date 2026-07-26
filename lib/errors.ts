@@ -39,6 +39,12 @@ export class ChatbotError extends Error {
   type: ErrorType;
   surface: Surface;
   statusCode: number;
+  persistence?: {
+    category: string;
+    retryable: boolean;
+    message: string;
+    reconciliation?: unknown;
+  };
 
   constructor(errorCode: ErrorCode, cause?: string | ErrorOptions) {
     const message = getMessageByErrorCode(errorCode);

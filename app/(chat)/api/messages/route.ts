@@ -10,10 +10,12 @@ export async function GET(request: Request) {
     return Response.json({ error: "chatId required" }, { status: 400 });
   }
 
-  const [session, chat, messages] = await Promise.all([
-    auth(),
-    getChatById({ id: chatId }),
-    getMessagesByChatId({ id: chatId }),
+  const session = await auth();
+  const [chat, messages] = await Promise.all([
+    getChatById({ id: chatId, userId: session?.user?.id }),
+    session?.user
+      ? getMessagesByChatId({ id: chatId, userId: session.user.id })
+      : Promise.resolve([]),
   ]);
 
   if (!chat) {

@@ -24,7 +24,7 @@ import {
   SidebarMenu,
   useSidebar,
 } from "@/components/ui/sidebar";
-import type { Chat } from "@/lib/db/schema";
+import type { Chat } from "@/lib/db/types";
 import { fetcher } from "@/lib/utils";
 import { LoaderIcon } from "./icons";
 import { ChatItem } from "./sidebar-history-item";
@@ -40,6 +40,7 @@ type GroupedChats = {
 export type ChatHistory = {
   chats: Chat[];
   hasMore: boolean;
+  nextCursor?: string | null;
 };
 
 const PAGE_SIZE = 20;
@@ -89,13 +90,11 @@ export function getChatHistoryPaginationKey(
     return `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/history?limit=${PAGE_SIZE}`;
   }
 
-  const firstChatFromPage = previousPageData.chats.at(-1);
-
-  if (!firstChatFromPage) {
+  if (previousPageData.chats.length === 0) {
     return null;
   }
 
-  return `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/history?ending_before=${firstChatFromPage.id}&limit=${PAGE_SIZE}`;
+  return `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/history?ending_before=${encodeURIComponent(previousPageData.nextCursor ?? "")}&limit=${PAGE_SIZE}`;
 }
 
 export function SidebarHistory({ user }: { user: AuthUser | undefined }) {

@@ -65,4 +65,16 @@ pub trait MessageRepository: Send + Sync {
         user_id: &str,
         cutoff: DateTime<Utc>,
     ) -> Result<u64, PersistenceError>;
+
+    async fn delete_messages_after(
+        &self,
+        _user_id: &str,
+        _chat_id: &str,
+        _timestamp: DateTime<Utc>,
+    ) -> Result<Vec<Message>, PersistenceError> {
+        Err(PersistenceError::Internal {
+            message: "message deletion is not configured".to_string(),
+            retryable: false,
+        })
+    }
 }

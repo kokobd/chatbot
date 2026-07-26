@@ -12,9 +12,11 @@ use crate::application::repository::chat_repository::{
     ChatHistoryPage, ChatHistoryQuery, ChatRepository, ChatTitle,
 };
 use crate::application::repository::error::PersistenceError;
-use crate::domain::{Chat, LifecycleState, Visibility};
+use crate::domain::{Chat, LifecycleState, Stream, Visibility, Vote};
 
 pub const CHATS_COLLECTION: &str = "chats";
+const VOTES_COLLECTION: &str = "votes";
+const STREAMS_COLLECTION: &str = "streams";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub(crate) struct ChatDocument {
@@ -49,6 +51,25 @@ struct ChatDeleteUpdate {
     deleted_at: Option<DateTime<Utc>>,
     #[serde(rename = "lifecycleRevision")]
     lifecycle_revision: i64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct VoteDocument {
+    #[serde(rename = "chatId")]
+    chat_id: String,
+    #[serde(rename = "messageId")]
+    message_id: String,
+    #[serde(rename = "isUpvoted")]
+    is_upvoted: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct StreamDocument {
+    id: String,
+    #[serde(rename = "chatId")]
+    chat_id: String,
+    #[serde(rename = "createdAt")]
+    created_at: DateTime<Utc>,
 }
 
 impl ChatDocument {
@@ -581,6 +602,167 @@ impl ChatRepository for FirestoreChatRepository {
         let has_more = chats.len() > query.limit as usize;
         chats.truncate(query.limit as usize);
         Ok(ChatHistoryPage { chats, has_more })
+    }
+
+    async fn upsert_vote(&self, user_id: &str, vote: &Vote) -> Result<Vote, PersistenceError> {
+        let Some(_) = self
+            .owned_chat(user_id, &vote.chat_id, FirestoreOperation::Read)
+            .await?
+            .filter(|(chat, _)| chat.lifecycle != LifecycleState::Deleted)
+        else {
+            return Err(PersistenceError::NotFound);
+        };
+        let parent = self
+            .db
+            .parent_path(CHATS_COLLECTION, &vote.chat_id)
+            .map(String::from)
+            .map_err(|error| map_firestore_error(error, FirestoreOperation::CreateSetup))?;
+        let document = VoteDocument {
+            chat_id: vote.chat_id.clone(),
+            message_id: vote.message_id.clone(),
+            is_upvoted: vote.is_upvoted,
+        };
+        let result = self
+            .db
+            .fluent()
+            .insert()
+            .into(VOTES_COLLECTION)
+            .document_id(&vote.message_id)
+            .parent(parent.as_str())
+            .object(&document)
+            .execute::<VoteDocument>()
+            .await;
+        match result {
+            Ok(_) => Ok(vote.clone()),
+            Err(error) => {
+                let mapped = map_firestore_error(error, FirestoreOperation::CreateCommit);
+                if mapped != PersistenceError::Conflict {
+                    return Err(mapped);
+                }
+                self.db
+                    .fluent()
+                    .update()
+                    .fields(["isUpvoted"])
+                    .in_col(VOTES_COLLECTION)
+                    .document_id(&vote.message_id)
+                    .parent(parent.as_str())
+                    .object(&document)
+                    .execute::<VoteDocument>()
+                    .await
+                    .map(|_| vote.clone())
+                    .map_err(|error| map_firestore_error(error, FirestoreOperation::UpdateCommit))
+            }
+        }
+    }
+
+    async fn list_votes(
+        &self,
+        user_id: &str,
+        chat_id: &str,
+    ) -> Result<Vec<Vote>, PersistenceError> {
+        let Some(_) = self
+            .owned_chat(user_id, chat_id, FirestoreOperation::Read)
+            .await?
+            .filter(|(chat, _)| chat.lifecycle != LifecycleState::Deleted)
+        else {
+            return Err(PersistenceError::NotFound);
+        };
+        let parent = self
+            .db
+            .parent_path(CHATS_COLLECTION, chat_id)
+            .map(String::from)
+            .map_err(|error| map_firestore_error(error, FirestoreOperation::HistoryRead))?;
+        self.db
+            .fluent()
+            .select()
+            .from(VOTES_COLLECTION)
+            .parent(parent.as_str())
+            .obj::<VoteDocument>()
+            .query()
+            .await
+            .map_err(|error| map_firestore_error(error, FirestoreOperation::HistoryRead))?
+            .into_iter()
+            .map(|document| {
+                Vote::new(document.chat_id, document.message_id, document.is_upvoted)
+                    .map_err(|error| PersistenceError::CorruptData(error.to_string()))
+            })
+            .collect()
+    }
+
+    async fn create_stream(
+        &self,
+        user_id: &str,
+        stream: &Stream,
+    ) -> Result<Stream, PersistenceError> {
+        let Some(_) = self
+            .owned_chat(user_id, &stream.chat_id, FirestoreOperation::Read)
+            .await?
+            .filter(|(chat, _)| chat.lifecycle != LifecycleState::Deleted)
+        else {
+            return Err(PersistenceError::NotFound);
+        };
+        let parent = self
+            .db
+            .parent_path(CHATS_COLLECTION, &stream.chat_id)
+            .map(String::from)
+            .map_err(|error| map_firestore_error(error, FirestoreOperation::CreateSetup))?;
+        let document = StreamDocument {
+            id: stream.id.clone(),
+            chat_id: stream.chat_id.clone(),
+            created_at: stream.created_at,
+        };
+        match self
+            .db
+            .fluent()
+            .insert()
+            .into(STREAMS_COLLECTION)
+            .document_id(&stream.id)
+            .parent(parent.as_str())
+            .object(&document)
+            .execute::<StreamDocument>()
+            .await
+        {
+            Ok(_) => Ok(stream.clone()),
+            Err(error) => Err(map_firestore_error(error, FirestoreOperation::CreateCommit)),
+        }
+    }
+
+    async fn list_streams(
+        &self,
+        user_id: &str,
+        chat_id: &str,
+    ) -> Result<Vec<Stream>, PersistenceError> {
+        let Some(_) = self
+            .owned_chat(user_id, chat_id, FirestoreOperation::Read)
+            .await?
+            .filter(|(chat, _)| chat.lifecycle != LifecycleState::Deleted)
+        else {
+            return Err(PersistenceError::NotFound);
+        };
+        let parent = self
+            .db
+            .parent_path(CHATS_COLLECTION, chat_id)
+            .map(String::from)
+            .map_err(|error| map_firestore_error(error, FirestoreOperation::HistoryRead))?;
+        let mut streams: Vec<Stream> = self
+            .db
+            .fluent()
+            .select()
+            .from(STREAMS_COLLECTION)
+            .parent(parent.as_str())
+            .order_by([("createdAt", FirestoreQueryDirection::Ascending)])
+            .obj::<StreamDocument>()
+            .query()
+            .await
+            .map_err(|error| map_firestore_error(error, FirestoreOperation::HistoryRead))?
+            .into_iter()
+            .map(|document| {
+                Stream::new(document.id, document.chat_id, document.created_at)
+                    .map_err(|error| PersistenceError::CorruptData(error.to_string()))
+            })
+            .collect::<Result<_, _>>()?;
+        streams.sort_by_key(|stream| (stream.created_at, stream.id.clone()));
+        Ok(streams)
     }
 }
 

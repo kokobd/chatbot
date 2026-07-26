@@ -2,7 +2,7 @@ import { Output, streamText, tool, type UIMessageStreamWriter } from "ai";
 import { z } from "zod";
 import type { Session } from "@/app/(auth)/auth";
 import { getDocumentById, saveSuggestions } from "@/lib/db/queries";
-import type { Suggestion } from "@/lib/db/schema";
+import type { Suggestion } from "@/lib/db/types";
 import type { ChatMessage } from "@/lib/types";
 import { generateUUID } from "@/lib/utils";
 import { getLanguageModel } from "../providers";
@@ -36,7 +36,7 @@ export const requestSuggestions = ({
 
       const suggestions: Omit<
         Suggestion,
-        "userId" | "createdAt" | "documentCreatedAt"
+        "userId" | "createdAt" | "versionId"
       >[] = [];
 
       const { partialOutputStream } = streamText({
@@ -78,6 +78,7 @@ export const requestSuggestions = ({
             isResolved: false,
             originalText: element.originalSentence,
             suggestedText: element.suggestedSentence,
+            versionId: document.versionId,
           };
 
           dataStream.write({
@@ -97,8 +98,7 @@ export const requestSuggestions = ({
         await saveSuggestions({
           suggestions: suggestions.map((suggestion) => ({
             ...suggestion,
-            createdAt: new Date(),
-            documentCreatedAt: document.createdAt,
+            createdAt: new Date().toISOString(),
             userId,
           })),
         });

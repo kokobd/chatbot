@@ -21,6 +21,7 @@ export async function GET(request: Request) {
 
   const suggestions = await getSuggestionsByDocumentId({
     documentId,
+    userId: session.user.id,
   });
 
   const [suggestion] = suggestions;

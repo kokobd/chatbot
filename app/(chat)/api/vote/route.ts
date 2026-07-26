@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     return new ChatbotError("unauthorized:vote").toResponse();
   }
 
-  const chat = await getChatById({ id: chatId });
+  const chat = await getChatById({ id: chatId, userId: session.user.id });
 
   if (!chat) {
     return new ChatbotError("not_found:chat").toResponse();
@@ -61,7 +61,7 @@ export async function PATCH(request: Request) {
     return new ChatbotError("unauthorized:vote").toResponse();
   }
 
-  const chat = await getChatById({ id: chatId });
+  const chat = await getChatById({ id: chatId, userId: session.user.id });
 
   if (!chat) {
     return new ChatbotError("not_found:vote").toResponse();

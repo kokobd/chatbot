@@ -226,4 +226,16 @@ impl MessageService {
     ) -> Result<u64, MessageServiceError> {
         Ok(self.repository.count_user_messages(user_id, cutoff).await?)
     }
+
+    pub async fn delete_messages_after(
+        &self,
+        user_id: &str,
+        chat_id: &str,
+        timestamp: DateTime<Utc>,
+    ) -> Result<Vec<Message>, MessageServiceError> {
+        Ok(self
+            .repository
+            .delete_messages_after(user_id, chat_id, timestamp)
+            .await?)
+    }
 }

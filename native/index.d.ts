@@ -9,6 +9,16 @@ export declare class ExternalObject<T> {
 }
 export declare class Service {}
 
+export interface ArtifactDto {
+  content?: string;
+  createdAt: string;
+  headVersionId?: string;
+  id: string;
+  kind: string;
+  title: string;
+  userId: string;
+}
+
 export interface AuthenticatedIdentity {
   email: string;
   subject: string;
@@ -19,13 +29,239 @@ export declare function authenticateIapRequest(
   headers: IapRequestHeaders
 ): Promise<AuthenticatedIdentity | null>;
 
+export interface ChatDto {
+  createdAt: string;
+  deletedAt?: string;
+  id: string;
+  lifecycle: string;
+  lifecycleRevision: number;
+  title: string;
+  userId: string;
+  visibility: string;
+}
+
+export interface ChatHistoryDto {
+  chats: ChatDto[];
+  hasMore: boolean;
+  nextCursor?: string;
+}
+
+export declare function createChat(
+  service: ExternalObject<Service>,
+  id: string,
+  userId: string,
+  title: string,
+  visibility: string,
+  createdAt: string
+): Promise<ChatDto>;
+
+export declare function createDocument(
+  service: ExternalObject<Service>,
+  id: string,
+  userId: string,
+  title: string,
+  kind: string,
+  content: string
+): Promise<DocumentDto>;
+
 export declare function createService(): Promise<ExternalObject<Service>>;
+
+export declare function createStream(
+  service: ExternalObject<Service>,
+  userId: string,
+  streamId: string,
+  chatId: string,
+  createdAt: string
+): Promise<StreamDto>;
+
+export declare function deleteAllChats(
+  service: ExternalObject<Service>,
+  userId: string
+): Promise<number>;
+
+export declare function deleteChat(
+  service: ExternalObject<Service>,
+  userId: string,
+  chatId: string
+): Promise<ChatDto>;
+
+export declare function deleteDocumentsAfter(
+  service: ExternalObject<Service>,
+  userId: string,
+  documentId: string,
+  cutoff: string
+): Promise<DocumentDto[]>;
+
+export declare function deleteMessagesAfter(
+  service: ExternalObject<Service>,
+  userId: string,
+  chatId: string,
+  cutoff: string
+): Promise<MessageDto[]>;
+
+export interface DocumentDto {
+  content?: string;
+  createdAt: string;
+  id: string;
+  kind: string;
+  title: string;
+  userId: string;
+  versionId: string;
+}
+
+export declare function getChat(
+  service: ExternalObject<Service>,
+  userId: string,
+  chatId: string
+): Promise<ChatDto | null>;
+
+export declare function getChatHistory(
+  service: ExternalObject<Service>,
+  userId: string,
+  limit: number,
+  startingAfter?: string | undefined | null,
+  endingBefore?: string | undefined | null
+): Promise<ChatHistoryDto>;
+
+export declare function getDocument(
+  service: ExternalObject<Service>,
+  userId: string,
+  documentId: string
+): Promise<DocumentDto | null>;
+
+export declare function getDocuments(
+  service: ExternalObject<Service>,
+  userId: string,
+  documentId: string
+): Promise<DocumentDto[]>;
+
+export declare function getMessage(
+  service: ExternalObject<Service>,
+  userId: string,
+  chatId: string,
+  messageId: string
+): Promise<MessageDto | null>;
+
+export declare function getMessageCount(
+  service: ExternalObject<Service>,
+  userId: string,
+  cutoff: string
+): Promise<number>;
+
+export declare function getMessages(
+  service: ExternalObject<Service>,
+  userId: string,
+  chatId: string
+): Promise<MessageDto[]>;
+
+export declare function getOrCreateIapUser(
+  service: ExternalObject<Service>,
+  subject: string,
+  email: string
+): Promise<UserDto>;
+
+export declare function getStreams(
+  service: ExternalObject<Service>,
+  userId: string,
+  chatId: string
+): Promise<string[]>;
+
+export declare function getSuggestions(
+  service: ExternalObject<Service>,
+  userId: string,
+  documentId: string
+): Promise<SuggestionDto[]>;
+
+export declare function getVotes(
+  service: ExternalObject<Service>,
+  userId: string,
+  chatId: string
+): Promise<VoteDto[]>;
 
 export interface IapRequestHeaders {
   authenticatedUserEmail?: string;
   authenticatedUserId?: string;
   jwtAssertion?: string;
 }
+
+export interface MessageDto {
+  attachments: string;
+  chatId: string;
+  createdAt: string;
+  id: string;
+  parts: string;
+  role: string;
+  userId: string;
+}
+
+export interface MessageInput {
+  attachments: string;
+  chatId: string;
+  createdAt: string;
+  id: string;
+  parts: string;
+  role: string;
+  userId: string;
+}
+
+export declare function saveMessages(
+  service: ExternalObject<Service>,
+  inputs: MessageInput[]
+): Promise<MessageDto[]>;
+
+export declare function saveSuggestions(
+  service: ExternalObject<Service>,
+  inputs: SuggestionInput[]
+): Promise<SuggestionDto[]>;
+
+export interface StreamDto {
+  chatId: string;
+  createdAt: string;
+  id: string;
+}
+
+export interface SuggestionDto {
+  createdAt: string;
+  description?: string;
+  documentId: string;
+  id: string;
+  isResolved: boolean;
+  originalText: string;
+  suggestedText: string;
+  userId: string;
+  versionId: string;
+}
+
+export interface SuggestionInput {
+  createdAt: string;
+  description?: string;
+  documentId: string;
+  id: string;
+  isResolved: boolean;
+  originalText: string;
+  suggestedText: string;
+  userId: string;
+  versionId: string;
+}
+
+export declare function updateChatTitle(
+  service: ExternalObject<Service>,
+  userId: string,
+  chatId: string,
+  title: string
+): Promise<ChatDto>;
+
+export declare function updateChatVisibility(
+  service: ExternalObject<Service>,
+  userId: string,
+  chatId: string,
+  visibility: string
+): Promise<ChatDto>;
+
+export declare function updateMessage(
+  service: ExternalObject<Service>,
+  input: MessageInput
+): Promise<MessageDto>;
 
 export declare function uploadObject(
   service: ExternalObject<Service>,
@@ -39,3 +275,25 @@ export interface UploadResult {
   pathname: string;
   url: string;
 }
+
+export interface UserDto {
+  createdAt: string;
+  email: string;
+  iapSubject?: string;
+  id: string;
+  updatedAt: string;
+}
+
+export interface VoteDto {
+  chatId: string;
+  isUpvoted: boolean;
+  messageId: string;
+}
+
+export declare function voteMessage(
+  service: ExternalObject<Service>,
+  userId: string,
+  chatId: string,
+  messageId: string,
+  isUpvoted: boolean
+): Promise<VoteDto>;

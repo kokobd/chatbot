@@ -35,25 +35,42 @@ export async function generateTitleFromUserMessage({
     .trim();
 }
 
-export async function deleteTrailingMessages({ id }: { id: string }) {
+export async function deleteTrailingMessages({
+  id,
+  chatId,
+}: {
+  id: string;
+  chatId?: string;
+}) {
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
   }
 
-  const [message] = await getMessageById({ id });
+  if (!chatId) {
+    throw new Error("Message chat is unavailable");
+  }
+  const [message] = await getMessageById({
+    chatId,
+    id,
+    userId: session.user.id,
+  });
   if (!message) {
     throw new Error("Message not found");
   }
 
-  const chat = await getChatById({ id: message.chatId });
+  const chat = await getChatById({
+    id: message.chatId,
+    userId: session.user.id,
+  });
   if (!chat || chat.userId !== session.user.id) {
     throw new Error("Unauthorized");
   }
 
   await deleteMessagesByChatIdAfterTimestamp({
     chatId: message.chatId,
-    timestamp: message.createdAt,
+    timestamp: new Date(message.createdAt),
+    userId: session.user.id,
   });
 }
 
@@ -69,10 +86,14 @@ export async function updateChatVisibility({
     throw new Error("Unauthorized");
   }
 
-  const chat = await getChatById({ id: chatId });
+  const chat = await getChatById({ id: chatId, userId: session.user.id });
   if (!chat || chat.userId !== session.user.id) {
     throw new Error("Unauthorized");
   }
 
-  await updateChatVisibilityById({ chatId, visibility });
+  await updateChatVisibilityById({
+    chatId,
+    userId: session.user.id,
+    visibility,
+  });
 }

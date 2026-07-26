@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::application::repository::{
     ChatHistoryPage, ChatHistoryQuery, ChatRepository, ChatTitle, PersistenceError,
 };
-use crate::domain::{Chat, ValidationError, Visibility};
+use crate::domain::{Chat, Stream, ValidationError, Visibility, Vote};
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ChatServiceError {
@@ -74,6 +74,38 @@ impl ChatService {
         query: &ChatHistoryQuery,
     ) -> Result<ChatHistoryPage, ChatServiceError> {
         Ok(self.repository.list_chat_history(query).await?)
+    }
+
+    pub async fn delete_all_chats_by_user(&self, user_id: &str) -> Result<u64, ChatServiceError> {
+        Ok(self.repository.delete_all_chats_by_user(user_id).await?)
+    }
+
+    pub async fn upsert_vote(&self, user_id: &str, vote: &Vote) -> Result<Vote, ChatServiceError> {
+        Ok(self.repository.upsert_vote(user_id, vote).await?)
+    }
+
+    pub async fn list_votes(
+        &self,
+        user_id: &str,
+        chat_id: &str,
+    ) -> Result<Vec<Vote>, ChatServiceError> {
+        Ok(self.repository.list_votes(user_id, chat_id).await?)
+    }
+
+    pub async fn create_stream(
+        &self,
+        user_id: &str,
+        stream: &Stream,
+    ) -> Result<Stream, ChatServiceError> {
+        Ok(self.repository.create_stream(user_id, stream).await?)
+    }
+
+    pub async fn list_streams(
+        &self,
+        user_id: &str,
+        chat_id: &str,
+    ) -> Result<Vec<Stream>, ChatServiceError> {
+        Ok(self.repository.list_streams(user_id, chat_id).await?)
     }
 }
 

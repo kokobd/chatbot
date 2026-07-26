@@ -40,7 +40,7 @@ import {
   updateChatTitleById,
   updateMessage,
 } from "@/lib/db/queries";
-import type { DBMessage } from "@/lib/db/schema";
+import type { DBMessage } from "@/lib/db/types";
 import { ChatbotError } from "@/lib/errors";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import type { ChatMessage, WaitingStatusData } from "@/lib/types";
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
 
     const isToolApprovalFlow = Boolean(messages);
 
-    const chat = await getChatById({ id });
+    const chat = await getChatById({ id, userId: session.user.id });
     let messagesFromDb: DBMessage[] = [];
     let titlePromise: Promise<string> | null = null;
 
@@ -138,7 +138,10 @@ export async function POST(request: Request) {
       if (chat.userId !== session.user.id) {
         return new ChatbotError("forbidden:chat").toResponse();
       }
-      messagesFromDb = await getMessagesByChatId({ id });
+      messagesFromDb = await getMessagesByChatId({
+        id,
+        userId: session.user.id,
+      });
     } else if (message?.role === "user") {
       await saveChat({
         id,
@@ -206,6 +209,7 @@ export async function POST(request: Request) {
             id: message.id,
             parts: message.parts,
             role: "user",
+            userId: session.user.id,
           },
         ],
       });
@@ -352,7 +356,7 @@ export async function POST(request: Request) {
           try {
             const title = await titlePromise;
             dataStream.write({ data: title, type: "data-chat-title" });
-            updateChatTitleById({ chatId: id, title });
+            updateChatTitleById({ chatId: id, title, userId: session.user.id });
           } catch {
             /* non-fatal */
           }
@@ -368,8 +372,10 @@ export async function POST(request: Request) {
               );
               if (existingMsg) {
                 await updateMessage({
+                  chatId: id,
                   id: finishedMsg.id,
                   parts: finishedMsg.parts,
+                  userId: session.user.id,
                 });
                 return;
               }
@@ -383,6 +389,7 @@ export async function POST(request: Request) {
                     id: finishedMsg.id,
                     parts: finishedMsg.parts,
                     role: finishedMsg.role,
+                    userId: session.user.id,
                   },
                 ],
               });
@@ -397,6 +404,7 @@ export async function POST(request: Request) {
               id: currentMessage.id,
               parts: currentMessage.parts,
               role: currentMessage.role,
+              userId: session.user.id,
             })),
           });
         }
@@ -461,7 +469,7 @@ export async function DELETE(request: Request) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }
 
-  const chat = await getChatById({ id });
+  const chat = await getChatById({ id, userId: session.user.id });
 
   if (chat?.userId !== session.user.id) {
     return new ChatbotError("forbidden:chat").toResponse();

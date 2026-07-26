@@ -36,8 +36,8 @@ export async function auth(): Promise<Session | null> {
     user: {
       email: user.email,
       id: user.id,
-      image: user.image,
-      name: user.name,
+      image: user.image ?? null,
+      name: user.name ?? null,
       type: "regular",
     },
   };

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 
-use crate::domain::{Chat, PaginationPosition, ValidationError, Visibility};
+use crate::domain::{Chat, PaginationPosition, Stream, ValidationError, Visibility, Vote};
 
 use super::error::PersistenceError;
 
@@ -131,4 +131,74 @@ pub trait ChatRepository: Send + Sync {
         &self,
         query: &ChatHistoryQuery,
     ) -> Result<ChatHistoryPage, PersistenceError>;
+
+    /// Tombstones every active chat owned by the user. Descendant cleanup is
+    /// deliberately outside this request-path port.
+    async fn delete_all_chats_by_user(&self, user_id: &str) -> Result<u64, PersistenceError> {
+        let mut deleted = 0;
+        let mut query =
+            ChatHistoryQuery::new(user_id, 50, None, None).map_err(PersistenceError::from)?;
+
+        loop {
+            let page = self.list_chat_history(&query).await?;
+            if page.chats.is_empty() {
+                break;
+            }
+            let next_cursor = page
+                .chats
+                .last()
+                .map(|chat| ChatHistoryCursor::new(chat.position()));
+            for chat in &page.chats {
+                self.delete_chat(user_id, &chat.id).await?;
+                deleted += 1;
+            }
+            if !page.has_more {
+                break;
+            }
+            query = ChatHistoryQuery::new(user_id, 50, next_cursor, None)
+                .map_err(PersistenceError::from)?;
+        }
+
+        Ok(deleted)
+    }
+
+    async fn upsert_vote(&self, _user_id: &str, _vote: &Vote) -> Result<Vote, PersistenceError> {
+        Err(PersistenceError::Internal {
+            message: "vote persistence is not configured".to_string(),
+            retryable: false,
+        })
+    }
+
+    async fn list_votes(
+        &self,
+        _user_id: &str,
+        _chat_id: &str,
+    ) -> Result<Vec<Vote>, PersistenceError> {
+        Err(PersistenceError::Internal {
+            message: "vote persistence is not configured".to_string(),
+            retryable: false,
+        })
+    }
+
+    async fn create_stream(
+        &self,
+        _user_id: &str,
+        _stream: &Stream,
+    ) -> Result<Stream, PersistenceError> {
+        Err(PersistenceError::Internal {
+            message: "stream persistence is not configured".to_string(),
+            retryable: false,
+        })
+    }
+
+    async fn list_streams(
+        &self,
+        _user_id: &str,
+        _chat_id: &str,
+    ) -> Result<Vec<Stream>, PersistenceError> {
+        Err(PersistenceError::Internal {
+            message: "stream persistence is not configured".to_string(),
+            retryable: false,
+        })
+    }
 }
