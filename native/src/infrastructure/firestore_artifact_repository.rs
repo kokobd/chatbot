@@ -542,15 +542,42 @@ impl FirestoreArtifactRepository {
 
     async fn reconcile_suggestions(
         &self,
+        user_id: &str,
         batch: &[Suggestion],
         original: PersistenceError,
     ) -> Result<Vec<Suggestion>, PersistenceError> {
         let mut result = Vec::with_capacity(batch.len());
         for suggestion in batch {
+            let Some(_) = self
+                .owned_artifact(
+                    user_id,
+                    &suggestion.document_id,
+                    ArtifactOperation::ReconcileRead,
+                )
+                .await
+                .map_err(|error| original.clone().with_reconciliation_failure(error))?
+            else {
+                return Err(original);
+            };
             let parent = match self.version_parent(&suggestion.document_id) {
                 Ok(parent) => parent,
                 Err(error) => return Err(original.with_reconciliation_failure(error)),
             };
+            let version = match self
+                .raw_version(
+                    &suggestion.document_id,
+                    &suggestion.version_id,
+                    ArtifactOperation::ReconcileRead,
+                )
+                .await
+            {
+                Ok(Some((document, version))) if document.cleanup_at.is_none() => version,
+                Ok(Some(_)) | Ok(None) => return Err(original),
+                Err(error) => return Err(original.with_reconciliation_failure(error)),
+            };
+            if version.document_id != suggestion.document_id {
+                return Err(original);
+            }
             let stored = match Self::read_suggestion_in(
                 &self.db,
                 parent.as_str(),
@@ -1268,7 +1295,7 @@ impl ArtifactRepository for FirestoreArtifactRepository {
                     }
                     Err(BatchFailure::Known(error)) => return Err(error),
                     Err(BatchFailure::Unknown(error)) => {
-                        saved.extend(self.reconcile_suggestions(batch, error).await?);
+                        saved.extend(self.reconcile_suggestions(user_id, batch, error).await?);
                         break;
                     }
                 }
@@ -1316,6 +1343,13 @@ impl ArtifactRepository for FirestoreArtifactRepository {
             ArtifactOperation::SuggestionQuery,
         )
         .await?;
+        let active_version_ids: HashSet<_> = self
+            .get_all_versions(document_id, ArtifactOperation::SuggestionQuery)
+            .await?
+            .into_iter()
+            .filter(|version| version.cleanup_at.is_none())
+            .map(|version| version.version_id)
+            .collect();
         let mut suggestions = Vec::with_capacity(documents.len());
         for document in documents {
             if document.cleanup_at.is_some() {
@@ -1327,6 +1361,9 @@ impl ArtifactRepository for FirestoreArtifactRepository {
                 return Err(PersistenceError::CorruptData(
                     "suggestion ownership binding does not match its artifact".to_string(),
                 ));
+            }
+            if !active_version_ids.contains(&suggestion.version_id) {
+                continue;
             }
             suggestions.push(suggestion);
         }
@@ -1751,6 +1788,18 @@ mod tests {
         ));
         let mapped = map_firestore_error(error, ArtifactOperation::TransactionCommit);
         assert!(matches!(mapped, PersistenceError::FailedPrecondition(_)));
+        assert!(!is_ambiguous_write(&mapped));
+    }
+
+    #[test]
+    fn known_permission_failures_are_not_ambiguous_or_reconciled() {
+        let error = FirestoreError::DatabaseError(FirestoreDatabaseError::new(
+            FirestoreErrorPublicGenericDetails::new("PermissionDenied".to_string()),
+            "permission denied".to_string(),
+            false,
+        ));
+        let mapped = map_firestore_error(error, ArtifactOperation::TransactionCommit);
+        assert!(matches!(mapped, PersistenceError::PermissionDenied(_)));
         assert!(!is_ambiguous_write(&mapped));
     }
 

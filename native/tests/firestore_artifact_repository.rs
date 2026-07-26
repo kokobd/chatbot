@@ -175,7 +175,8 @@ async fn versions_are_immutable_ordered_owned_and_logically_cleaned() {
     let second_id = id("second");
     let future_id = id("future");
     let artifact = artifact(&artifact_id, &user_id);
-    let first_suggestion = suggestion(&id("suggestion-first"), &artifact_id, &first_id, &user_id);
+    let first_suggestion =
+        suggestion(&id("suggestion-first"), &artifact_id, &first_id, &user_id).with_resolved(true);
     let future_suggestion =
         suggestion(&id("suggestion-future"), &artifact_id, &future_id, &user_id);
 
@@ -345,6 +346,21 @@ async fn versions_are_immutable_ordered_owned_and_logically_cleaned() {
             .unwrap();
         assert_eq!(stored_suggestion.version_id, future_id);
         assert!(stored_suggestion.cleanup_at.is_some());
+        let stored_first_suggestion: StoredSuggestionMarker = db
+            .fluent()
+            .select()
+            .by_id_in(SUGGESTIONS_COLLECTION)
+            .parent(parent.as_ref())
+            .obj()
+            .one(&first_suggestion.id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(stored_first_suggestion.is_resolved);
+        assert_eq!(
+            stored_first_suggestion.description.as_deref(),
+            Some("A clearer phrasing")
+        );
         Ok(())
     }
     .await;
