@@ -1,0 +1,35 @@
+steps:
+  # Building the test target runs the repository checks before any final image
+  # is built or published.
+  - name: gcr.io/cloud-builders/docker
+    id: test
+    args:
+      - build
+      - --progress=plain
+      - --target
+      - test
+      - --tag
+      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA-ci
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    id: build
+    waitFor:
+      - test
+    args:
+      - build
+      - --progress=plain
+      - --target
+      - runtime
+      - --tag
+      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA
+      - .
+
+substitutions:
+  _LOCATION: us-central1
+  _REPOSITORY: chatbot
+
+images:
+  - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA
+
+timeout: 1800s
