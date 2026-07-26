@@ -28,7 +28,10 @@ import { editDocument } from "@/lib/ai/tools/edit-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
-import { isProductionEnvironment } from "@/lib/constants";
+import {
+  isProductionEnvironment,
+  isResumableStreamsEnabled,
+} from "@/lib/constants";
 import {
   createStreamId,
   deleteChatById,
@@ -132,8 +135,6 @@ export async function POST(request: Request) {
 
     const chat = await getChatById({ id, userId: session.user.id });
     let messagesFromDb: DBMessage[] = [];
-    let titlePromise: Promise<string> | null = null;
-
     if (chat) {
       if (chat.userId !== session.user.id) {
         return new ChatbotError("forbidden:chat").toResponse();
@@ -149,7 +150,21 @@ export async function POST(request: Request) {
         userId: session.user.id,
         visibility: selectedVisibilityType,
       });
-      titlePromise = generateTitleFromUserMessage({ message });
+      // Title generation is best effort and must not gate the chat stream.
+      // `after` also gives the main request a clean failure boundary if the
+      // title provider is slow or unavailable.
+      after(async () => {
+        try {
+          const title = await generateTitleFromUserMessage({ message });
+          await updateChatTitleById({
+            chatId: id,
+            title,
+            userId: session.user.id,
+          });
+        } catch {
+          /* A title is non-critical; keep the default title. */
+        }
+      });
     }
 
     let uiMessages: ChatMessage[];
@@ -224,7 +239,7 @@ export async function POST(request: Request) {
     const modelMessages = await convertToModelMessages(uiMessages);
 
     const stream = createUIMessageStream({
-      execute: async ({ writer: dataStream }) => {
+      execute: ({ writer: dataStream }) => {
         const modelName = modelConfig?.name ?? chatModel;
         let hasModelActivity = false;
         let healthCheckTimer: ReturnType<typeof setTimeout> | undefined;
@@ -288,6 +303,7 @@ export async function POST(request: Request) {
         };
 
         const result = streamText({
+          abortSignal: request.signal,
           activeTools:
             isReasoningModel && !supportsTools
               ? []
@@ -299,6 +315,7 @@ export async function POST(request: Request) {
                   "requestSuggestions",
                 ],
           instructions: systemPrompt({ requestHints, supportsTools }),
+          maxRetries: 1,
           messages: modelMessages,
           model: getLanguageModel(chatModel),
           onAbort() {
@@ -321,6 +338,7 @@ export async function POST(request: Request) {
             functionId: "stream-text",
             isEnabled: isProductionEnvironment,
           },
+          timeout: 50_000,
           tools: {
             createDocument: createDocument({
               dataStream,
@@ -351,16 +369,6 @@ export async function POST(request: Request) {
             stream: result.stream,
           })
         );
-
-        if (titlePromise) {
-          try {
-            const title = await titlePromise;
-            dataStream.write({ data: title, type: "data-chat-title" });
-            updateChatTitleById({ chatId: id, title, userId: session.user.id });
-          } catch {
-            /* non-fatal */
-          }
-        }
       },
       generateId: generateUUID,
       onEnd: async ({ messages: finishedMessages }) => {
@@ -415,7 +423,7 @@ export async function POST(request: Request) {
 
     return createUIMessageStreamResponse({
       async consumeSseStream({ stream: sseStream }) {
-        if (!process.env.REDIS_URL) {
+        if (!isResumableStreamsEnabled || !process.env.REDIS_URL) {
           return;
         }
         try {

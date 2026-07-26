@@ -11,12 +11,11 @@ export async function GET(request: Request) {
   }
 
   const session = await auth();
-  const [chat, messages] = await Promise.all([
-    getChatById({ id: chatId, userId: session?.user?.id }),
-    session?.user
-      ? getMessagesByChatId({ id: chatId, userId: session.user.id })
-      : Promise.resolve([]),
-  ]);
+  // Read the parent first. A new-chat request persists the parent before it
+  // returns its stream response, but the client can request messages while
+  // that response is starting. Reading children concurrently turns that
+  // expected transient state into a database not-found error.
+  const chat = await getChatById({ id: chatId, userId: session?.user?.id });
 
   if (!chat) {
     return Response.json({
@@ -26,6 +25,10 @@ export async function GET(request: Request) {
       visibility: "private",
     });
   }
+
+  const messages = session?.user
+    ? await getMessagesByChatId({ id: chatId, userId: session.user.id })
+    : [];
 
   if (
     chat.visibility === "private" &&

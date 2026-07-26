@@ -227,12 +227,6 @@ function PureMultimodalInput({
   );
 
   const submitForm = useCallback(() => {
-    window.history.pushState(
-      {},
-      "",
-      `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${chatId}`
-    );
-
     sendMessage({
       parts: [
         {
@@ -264,7 +258,6 @@ function PureMultimodalInput({
     setAttachments,
     setLocalStorageInput,
     width,
-    chatId,
   ]);
 
   const uploadFile = useCallback(async (file: File) => {

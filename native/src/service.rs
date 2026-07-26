@@ -146,7 +146,11 @@ fn create_iap_provider() -> Result<Arc<dyn IapIdentityProvider>, IapIdentityProv
     match provider.as_str() {
         "google" => Ok(Arc::new(GoogleIapIdentityProvider::from_env()?)),
         "test" => {
-            if is_production_environment() {
+            // The local real-resource e2e runner uses a production Next.js
+            // server so it does not need a file watcher. Its explicit marker
+            // is never set by Cloud Run deployments.
+            let real_e2e_test = std::env::var("E2E_REAL_TESTS").as_deref() == Ok("1");
+            if is_production_environment() && !real_e2e_test {
                 return Err(IapIdentityProviderError::Configuration(
                     "IAP_AUTH_PROVIDER=test is not allowed in production".to_string(),
                 ));

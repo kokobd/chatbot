@@ -1,7 +1,7 @@
 "use client";
 
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useDataStream } from "@/components/chat/data-stream-provider";
 import type { ChatMessage } from "@/lib/types";
 
@@ -19,6 +19,7 @@ export function useAutoResume({
   setMessages,
 }: UseAutoResumeParams) {
   const { dataStream } = useDataStream();
+  const resumedMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!autoResume) {
@@ -28,9 +29,13 @@ export function useAutoResume({
     const mostRecentMessage = initialMessages.at(-1);
 
     if (mostRecentMessage?.role === "user") {
-      resumeStream();
+      if (resumedMessageIdRef.current === mostRecentMessage.id) {
+        return;
+      }
+      resumedMessageIdRef.current = mostRecentMessage.id;
+      resumeStream().catch(() => undefined);
     }
-  }, [autoResume, initialMessages.at, resumeStream]);
+  }, [autoResume, initialMessages, resumeStream]);
 
   useEffect(() => {
     if (!dataStream) {

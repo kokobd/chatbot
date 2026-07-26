@@ -14,21 +14,16 @@ type SuggestedActionsProps = {
   selectedVisibilityType: VisibilityType;
 };
 
-function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
+function PureSuggestedActions({ sendMessage }: SuggestedActionsProps) {
   const suggestedActions = suggestions;
   const handleSuggestionClick = useCallback(
     (suggestion: string) => {
-      window.history.pushState(
-        {},
-        "",
-        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${chatId}`
-      );
       sendMessage({
         parts: [{ text: suggestion, type: "text" }],
         role: "user",
       });
     },
-    [chatId, sendMessage]
+    [sendMessage]
   );
 
   return (

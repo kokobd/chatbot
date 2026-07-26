@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { defineConfig, devices } from "@playwright/test";
 
 /**
@@ -14,29 +15,51 @@ config({
   path: ".env",
 });
 
-/* Use process.env.PORT by default and fallback to port 3000 */
-const PORT = process.env.PORT || 3000;
+/* Use an isolated port so an unrelated dev server cannot be reused. */
+const PORT = process.env.E2E_PORT || process.env.PORT || 3100;
+const webServerCommand =
+  process.env.E2E_USE_DEV_SERVER === "1"
+    ? `pnpm exec next dev --webpack -H 127.0.0.1 -p ${PORT}`
+    : `pnpm exec next build && pnpm exec next start -H 127.0.0.1 -p ${PORT}`;
 
 /**
  * Set webServer.url and use.baseURL with the location
  * of the WebServer respecting the correct set port
  */
 const baseURL = `http://localhost:${PORT}`;
-const iapTestSubject =
+const runId = (process.env.E2E_RUN_ID ?? randomUUID()).replace(
+  /[^a-zA-Z0-9-]/g,
+  "-"
+);
+const baseIapTestSubject =
   process.env.IAP_TEST_SUBJECT ?? "playwright-test-subject";
-const iapTestEmail = process.env.IAP_TEST_EMAIL ?? "playwright@example.com";
+const baseIapTestEmail = process.env.IAP_TEST_EMAIL ?? "playwright@example.com";
+const useUniqueIdentity = process.env.E2E_FIXED_IDENTITY !== "1";
+const iapTestSubject = useUniqueIdentity
+  ? `${baseIapTestSubject}-e2e-${runId}`
+  : baseIapTestSubject;
+const iapTestEmail = useUniqueIdentity
+  ? (() => {
+      const at = baseIapTestEmail.lastIndexOf("@");
+      if (at < 1) {
+        return `${baseIapTestEmail}-e2e-${runId}`;
+      }
+      return `${baseIapTestEmail.slice(0, at)}+e2e-${runId}${baseIapTestEmail.slice(at)}`;
+    })()
+  : baseIapTestEmail;
+
+process.env.E2E_IAP_TEST_EMAIL = iapTestEmail;
+process.env.E2E_IAP_TEST_SUBJECT = iapTestSubject;
 
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
-  expect: {
-    timeout: 240 * 1000,
-  },
+  expect: { timeout: 30 * 1000 },
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Run tests in files in parallel */
-  fullyParallel: true,
+  fullyParallel: false,
 
   /* Configure projects */
   projects: [
@@ -85,7 +108,7 @@ export default defineConfig({
   testDir: "./tests",
 
   /* Configure global timeout for each test */
-  timeout: 240 * 1000, // 120 seconds
+  timeout: 90 * 1000,
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
@@ -102,16 +125,17 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: "WATCHPACK_POLLING=true pnpm dev",
+    command: webServerCommand,
     env: {
+      E2E_REAL_TESTS: "1",
       IAP_AUTH_PROVIDER: "test",
       IAP_TEST_EMAIL: iapTestEmail,
       IAP_TEST_SUBJECT: iapTestSubject,
     },
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120 * 1000,
-    url: `${baseURL}/ping`,
+    url: `${baseURL}/api/e2e/ready`,
   },
   /* Limit workers to prevent browser crashes */
-  workers: process.env.CI ? 2 : 2,
+  workers: 1,
 });

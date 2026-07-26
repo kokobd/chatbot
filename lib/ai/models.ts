@@ -1,6 +1,7 @@
 import { isTestEnvironment } from "../constants";
 
 const OPENROUTER_API_BASE_URL = "https://openrouter.ai/api/v1";
+const OPENROUTER_METADATA_TIMEOUT_MS = 10_000;
 
 export type ModelCapabilities = {
   tools: boolean;
@@ -131,6 +132,7 @@ async function getOpenRouterModels(): Promise<OpenRouterModel[]> {
   const res = await fetch(`${OPENROUTER_API_BASE_URL}/models`, {
     headers: openRouterHeaders(),
     next: { revalidate: 86_400 },
+    signal: AbortSignal.timeout(OPENROUTER_METADATA_TIMEOUT_MS),
   });
 
   if (!res.ok) {
@@ -281,6 +283,7 @@ export async function getModelAvailability(
     const res = await fetch(modelEndpointUrl(model.id), {
       headers: openRouterHeaders(),
       next: { revalidate: 60 },
+      signal: AbortSignal.timeout(OPENROUTER_METADATA_TIMEOUT_MS),
     });
 
     if (!res.ok) {

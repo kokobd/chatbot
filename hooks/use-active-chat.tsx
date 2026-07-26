@@ -23,6 +23,7 @@ import { toast } from "@/components/chat/toast";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
 import { useAutoResume } from "@/hooks/use-auto-resume";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { isResumableStreamsClientEnabled } from "@/lib/constants";
 import type { Vote } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
@@ -87,7 +88,22 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       ? null
       : `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/messages?chatId=${chatId}`,
     fetcher,
-    { revalidateOnFocus: false }
+    {
+      onErrorRetry: (error, _key, _config, revalidate, { retryCount }) => {
+        if (retryCount >= 2) {
+          return;
+        }
+        if (
+          error instanceof ChatbotError &&
+          error.statusCode >= 400 &&
+          error.statusCode < 500
+        ) {
+          return;
+        }
+        revalidate({ retryCount });
+      },
+      revalidateOnFocus: false,
+    }
   );
 
   const initialMessages: ChatMessage[] = isNewChat
@@ -144,35 +160,68 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
         ) ?? false
       );
     },
-    transport: new DefaultChatTransport({
-      api: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat`,
-      fetch: fetchWithErrorHandlers,
-      prepareSendMessagesRequest(request) {
-        const lastMessage = request.messages.at(-1);
-        const isToolApprovalContinuation =
-          lastMessage?.role !== "user" ||
-          request.messages.some((msg) =>
-            msg.parts?.some((part) => {
-              const { state } = part as { state?: string };
-              return (
-                state === "approval-responded" || state === "output-denied"
-              );
-            })
-          );
+    transport: useMemo(
+      () =>
+        new DefaultChatTransport({
+          api: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat`,
+          fetch: async (requestInput, init) => {
+            const response = await fetchWithErrorHandlers(requestInput, init);
 
-        return {
-          body: {
-            id: request.id,
-            ...(isToolApprovalContinuation
-              ? { messages: request.messages }
-              : { message: lastMessage }),
-            selectedChatModel: currentModelIdRef.current,
-            selectedVisibilityType: visibility,
-            ...request.body,
+            // The server has persisted the parent and initial user message
+            // before returning the stream response. Only then expose the chat
+            // URL, so message reads cannot race parent creation.
+            if (
+              typeof window !== "undefined" &&
+              init?.method === "POST" &&
+              typeof init.body === "string"
+            ) {
+              try {
+                const body = JSON.parse(init.body) as {
+                  id?: string;
+                  message?: { role?: string };
+                };
+                if (body.message?.role === "user" && body.id) {
+                  window.history.pushState(
+                    {},
+                    "",
+                    `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${body.id}`
+                  );
+                }
+              } catch {
+                // The API will report malformed transport data.
+              }
+            }
+
+            return response;
           },
-        };
-      },
-    }),
+          prepareSendMessagesRequest(request) {
+            const lastMessage = request.messages.at(-1);
+            const isToolApprovalContinuation =
+              lastMessage?.role !== "user" ||
+              request.messages.some((msg) =>
+                msg.parts?.some((part) => {
+                  const { state } = part as { state?: string };
+                  return (
+                    state === "approval-responded" || state === "output-denied"
+                  );
+                })
+              );
+
+            return {
+              body: {
+                id: request.id,
+                ...(isToolApprovalContinuation
+                  ? { messages: request.messages }
+                  : { message: lastMessage }),
+                selectedChatModel: currentModelIdRef.current,
+                selectedVisibilityType: visibility,
+                ...request.body,
+              },
+            };
+          },
+        }),
+      [visibility]
+    ),
   });
 
   useEffect(() => {
@@ -225,20 +274,15 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     const query = params.get("query");
     if (query && !hasAppendedQueryRef.current) {
       hasAppendedQueryRef.current = true;
-      window.history.replaceState(
-        {},
-        "",
-        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${chatId}`
-      );
       sendMessage({
         parts: [{ text: query, type: "text" }],
         role: "user" as const,
       });
     }
-  }, [sendMessage, chatId]);
+  }, [sendMessage]);
 
   useAutoResume({
-    autoResume: !isNewChat && !!chatData,
+    autoResume: isResumableStreamsClientEnabled && !isNewChat && !!chatData,
     initialMessages,
     resumeStream,
     setMessages,
