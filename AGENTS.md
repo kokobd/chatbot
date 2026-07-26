@@ -18,3 +18,10 @@ For new server-side Rust capabilities:
 - Keep the native handle private to `lib/native.ts`; expose narrow TypeScript wrappers.
 - Do not store request-specific or user-specific mutable state in long-lived services.
 - Add application tests with fakes, infrastructure tests, N-API boundary checks, and TypeScript/e2e coverage.
+
+## Test environment
+
+- Test environment is provisioned using terraform/
+- Local .env stores the GCP resources created by terraform. LLM agents can read .env freely.
+- Production secrets will be managed separately.
+

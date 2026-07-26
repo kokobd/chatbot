@@ -1,0 +1,4 @@
+- [ ] Add GCP Cloud Build.
+- [ ] Add GCP cloud run service to Terraform.
+- [ ] Add a GCP Cloud Run Job for garbage-collection in DB.
+- [ ] Review performance implication - does this service scale well?
