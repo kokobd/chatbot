@@ -53,6 +53,8 @@ pub struct Chat {
     pub visibility: Visibility,
     pub lifecycle: LifecycleState,
     pub created_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
+    pub lifecycle_revision: u64,
 }
 
 impl Chat {
@@ -74,7 +76,32 @@ impl Chat {
             visibility,
             lifecycle: LifecycleState::Active,
             created_at,
+            deleted_at: None,
+            lifecycle_revision: 0,
         })
+    }
+
+    pub fn from_persisted(
+        id: impl AsRef<str>,
+        user_id: impl AsRef<str>,
+        title: impl Into<String>,
+        visibility: Visibility,
+        lifecycle: LifecycleState,
+        created_at: DateTime<Utc>,
+        deleted_at: Option<DateTime<Utc>>,
+        lifecycle_revision: u64,
+    ) -> Result<Self, ValidationError> {
+        if matches!(lifecycle, LifecycleState::Deleted) != deleted_at.is_some() {
+            return Err(ValidationError::InvalidCharacters {
+                field: "chat lifecycle tombstone",
+            });
+        }
+
+        let mut chat = Self::new(id, user_id, title, visibility, created_at)?;
+        chat.lifecycle = lifecycle;
+        chat.deleted_at = deleted_at;
+        chat.lifecycle_revision = lifecycle_revision;
+        Ok(chat)
     }
 
     pub fn position(&self) -> PaginationPosition {

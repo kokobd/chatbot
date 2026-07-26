@@ -3,8 +3,13 @@ pub mod domain;
 mod infrastructure;
 mod service;
 
-pub use application::repository::{Email, IapUser, PersistenceError, UserRepository};
+pub use application::chat_service::{ChatService, ChatServiceError};
+pub use application::repository::{
+    ChatHistoryCursor, ChatHistoryPage, ChatHistoryQuery, ChatRepository, ChatTitle, Email,
+    IapUser, PersistenceError, UserRepository,
+};
 pub use application::user_service::{UserService, UserServiceError};
+pub use infrastructure::firestore_chat_repository::FirestoreChatRepository;
 pub use infrastructure::firestore_user_repository::FirestoreUserRepository;
 
 use application::file_upload::UploadResult as ApplicationUploadResult;

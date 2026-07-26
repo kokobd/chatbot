@@ -20,3 +20,31 @@ resource "google_firestore_database" "chatbot" {
     terraform_data.environment_validation,
   ]
 }
+
+resource "google_firestore_index" "chats_history" {
+  project     = var.project_id
+  database    = google_firestore_database.chatbot.name
+  collection  = "chats"
+  query_scope = "COLLECTION"
+  skip_wait   = true
+
+  fields {
+    field_path = "userId"
+    order      = "ASCENDING"
+  }
+
+  fields {
+    field_path = "createdAt"
+    order      = "DESCENDING"
+  }
+
+  fields {
+    field_path = "id"
+    order      = "DESCENDING"
+  }
+
+  fields {
+    field_path = "lifecycle"
+    order      = "DESCENDING"
+  }
+}
