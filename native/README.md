@@ -14,7 +14,8 @@ capabilities. It exposes one explicit `External<Service>` handle to Node.js.
 - `service.rs` is the composition root. `createService()` reads environment
   configuration, selects concrete implementations, constructs application
   services, injects their dependencies, and returns one top-level `Service`
-  handle. `Service::new(...)` itself is dependency-only.
+  handle. It eagerly loads the optional `SECRETS_GCS_PATH` JSON object before
+  returning. `Service::new(...)` itself is dependency-only.
 - `application/iap_identity.rs` defines the identity-provider port and native
   request/identity types. Infrastructure implements that port with the Google
   production provider or the explicitly selected local/test provider.
@@ -26,8 +27,9 @@ capabilities. It exposes one explicit `External<Service>` handle to Node.js.
   and native results, accepts `&External<Service>`, and translates native
   errors into N-API errors.
 - `lib/native.ts` is the server-side TypeScript bridge. It memoizes one
-  service promise for the current Node.js runtime and keeps callers from
-  passing native handles through application code.
+  service promise for the current Node.js runtime, initializes it from the
+  Node startup hook, applies the Rust-returned secret map to `process.env`, and
+  keeps callers from passing native handles through application code.
 
 Application ports are implemented by infrastructure providers. Tests can
 construct `FileUploadService` with a fake `ObjectStorage` without credentials,

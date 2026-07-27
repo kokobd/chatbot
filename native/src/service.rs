@@ -13,12 +13,14 @@ use crate::application::message_service::{MessageService, MessageServiceError};
 use crate::application::repository::{
     ArtifactRepository, ChatRepository, MessageRepository, UserRepository,
 };
+use crate::application::secrets::{SecretLoadError, SecretLoader, SecretMap};
 use crate::application::user_service::{UserService, UserServiceError};
 use crate::infrastructure::firestore_artifact_repository::FirestoreArtifactRepository;
 use crate::infrastructure::firestore_chat_repository::FirestoreChatRepository;
 use crate::infrastructure::firestore_message_repository::FirestoreMessageRepository;
 use crate::infrastructure::firestore_user_repository::FirestoreUserRepository;
 use crate::infrastructure::gcs_object_storage::{GcsObjectStorage, GcsObjectStorageError};
+use crate::infrastructure::gcs_secret_store::GcsSecretObjectStore;
 use crate::infrastructure::iap_google_identity::GoogleIapIdentityProvider;
 use crate::infrastructure::iap_test_identity::TestIapIdentityProvider;
 use std::sync::Arc;
@@ -31,6 +33,7 @@ pub struct Service {
     pub(crate) chats: ChatService,
     pub(crate) messages: MessageService,
     pub(crate) artifacts: ArtifactService,
+    secrets: SecretMap,
 }
 
 #[derive(Debug, Error)]
@@ -51,6 +54,8 @@ pub enum ServiceError {
     Message(#[from] MessageServiceError),
     #[error(transparent)]
     Artifact(#[from] ArtifactServiceError),
+    #[error(transparent)]
+    SecretsConfiguration(#[from] SecretLoadError),
     #[error("invalid native request: {0}")]
     InvalidRequest(String),
 }
@@ -63,6 +68,7 @@ impl Service {
         chats: ChatService,
         messages: MessageService,
         artifacts: ArtifactService,
+        secrets: SecretMap,
     ) -> Self {
         Self {
             authentication,
@@ -71,7 +77,12 @@ impl Service {
             chats,
             messages,
             artifacts,
+            secrets,
         }
+    }
+
+    pub fn secrets(&self) -> &SecretMap {
+        &self.secrets
     }
 
     pub async fn authenticate_iap(
@@ -99,6 +110,8 @@ impl Service {
 
 pub async fn create_service() -> Result<Service, ServiceError> {
     install_rustls_provider();
+
+    let secrets = load_secrets().await?;
 
     let provider = create_iap_provider()
         .map_err(|error| ServiceError::Authentication(IapAuthenticationError::Provider(error)))?;
@@ -128,7 +141,22 @@ pub async fn create_service() -> Result<Service, ServiceError> {
         ChatService::new(chats),
         MessageService::new(messages),
         ArtifactService::new(artifacts),
+        secrets,
     ))
+}
+
+async fn load_secrets() -> Result<SecretMap, ServiceError> {
+    let Ok(path) = std::env::var("SECRETS_GCS_PATH") else {
+        return Ok(SecretMap::new());
+    };
+
+    let store = GcsSecretObjectStore::new()
+        .await
+        .map_err(SecretLoadError::from)?;
+    SecretLoader::new(store)
+        .load(&path)
+        .await
+        .map_err(Into::into)
 }
 
 fn required_environment(name: &str) -> Result<String, ServiceError> {

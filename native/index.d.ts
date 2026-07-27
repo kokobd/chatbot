@@ -160,6 +160,10 @@ export declare function getOrCreateIapUser(
   email: string
 ): Promise<UserDto>;
 
+export declare function getSecrets(
+  service: ExternalObject<Service>
+): SecretEntryDto[];
+
 export declare function getStreams(
   service: ExternalObject<Service>,
   userId: string,
@@ -213,6 +217,11 @@ export declare function saveSuggestions(
   service: ExternalObject<Service>,
   inputs: SuggestionInput[]
 ): Promise<SuggestionDto[]>;
+
+export interface SecretEntryDto {
+  key: string;
+  value: string;
+}
 
 export interface StreamDto {
   chatId: string;

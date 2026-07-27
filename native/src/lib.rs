@@ -62,6 +62,12 @@ pub struct UploadResult {
 }
 
 #[napi(object)]
+pub struct SecretEntryDto {
+    pub key: String,
+    pub value: String,
+}
+
+#[napi(object)]
 pub struct UserDto {
     pub id: String,
     pub email: String,
@@ -343,6 +349,7 @@ where
             IapIdentityProviderError::Configuration(_),
         ))
         | ServiceError::FirestoreConfiguration(_)
+        | ServiceError::SecretsConfiguration(_)
         | ServiceError::InvalidRequest(_) => Status::InvalidArg,
         ServiceError::Authentication(_) => Status::GenericFailure,
         _ => match service_error_payload(&error).category.as_str() {
@@ -489,6 +496,18 @@ pub async fn create_service() -> Result<External<Service>> {
         .await
         .map(External::new)
         .map_err(to_napi_error)
+}
+
+#[napi(js_name = "getSecrets")]
+pub fn get_secrets(service: &External<Service>) -> Vec<SecretEntryDto> {
+    service
+        .secrets()
+        .iter()
+        .map(|(key, value)| SecretEntryDto {
+            key: key.clone(),
+            value: value.clone(),
+        })
+        .collect()
 }
 
 #[napi(js_name = "authenticateIapRequest")]

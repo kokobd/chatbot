@@ -43,6 +43,69 @@ a feature environment, use `terraform workspace new feature-abcdef` and apply
 again. Each workspace has isolated remote state and a distinct bucket and
 Firestore database.
 
+Terraform also provisions a workspace-specific Artifact Registry repository,
+Cloud Build trigger, Cloud Run service, runtime service account, and direct
+Cloud Run IAP policy. The default Cloud Build branch is the Terraform
+workspace name (`test`, `staging`, `prod`, and so on). Override it with
+`-var='cloud_build_branch=...'` when needed.
+
+Before the first apply that creates a trigger, connect the GitHub repository
+`kokobd/chatbot` to Cloud Build in the Cloud Build Triggers console. This is a
+one-time project-level OAuth connection and cannot be completed by Terraform
+without an existing repository mapping. After connecting it, rerun:
+
+```sh
+terraform apply
+```
+
+The trigger builds and publishes an image; it does not deploy Cloud Run. The
+Cloud Run service starts with Google's hello-world image. Deploy an image built
+by Cloud Build explicitly with:
+
+```sh
+export SERVICE="$(terraform output -raw cloud_run_service_name)"
+export IMAGE="$(terraform output -raw artifact_repository)/service:${COMMIT_SHA}"
+gcloud run deploy "$SERVICE" \
+  --project="$(terraform output -raw firestore_project_id)" \
+  --region=us-central1 \
+  --image="$IMAGE" \
+  --no-allow-unauthenticated
+```
+
+The image is intentionally ignored by Terraform lifecycle management, while
+the service environment variables, service account, IAP configuration, and
+other infrastructure settings remain Terraform-managed. Keep deployment
+commands from replacing those environment variables or disabling IAP.
+
+## Project-wide GCS secrets
+
+The project-wide secrets bucket is intentionally managed outside Terraform.
+Create it once with `gcloud` and keep it private:
+
+```sh
+export SECRETS_BUCKET="$(terraform output -raw secrets_bucket_name)"
+gcloud storage buckets create "gs://${SECRETS_BUCKET}" \
+  --project="$(terraform output -raw firestore_project_id)" \
+  --location=us-central1 \
+  --uniform-bucket-level-access \
+  --public-access-prevention
+```
+
+Each workspace secret object is a JSON map of environment-variable names to
+string values. Upload it and grant the workspace Cloud Run identity read
+access:
+
+```sh
+gcloud storage cp ./test-secrets.json "$(terraform output -raw secrets_gcs_path)"
+gcloud storage buckets add-iam-policy-binding "gs://${SECRETS_BUCKET}" \
+  --member="serviceAccount:$(terraform output -raw runtime_service_account_email)" \
+  --role=roles/storage.objectViewer
+```
+
+Secret values are loaded once by the Rust native service during eager process
+startup. They are never stored in Terraform state or Cloud Build
+substitutions.
+
 The `test` workspace uses Firestore Native mode in the location configured by
 `firestore_location` (default `us-central1`). Apply it with:
 

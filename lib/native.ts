@@ -22,6 +22,7 @@ import {
   getMessageCount as nativeGetMessageCount,
   getMessages as nativeGetMessages,
   getOrCreateIapUser as nativeGetOrCreateIapUser,
+  getSecrets as nativeGetSecrets,
   getStreams as nativeGetStreams,
   getSuggestions as nativeGetSuggestions,
   getVotes as nativeGetVotes,
@@ -32,6 +33,7 @@ import {
   updateMessage as nativeUpdateMessage,
   uploadObject as nativeUploadObject,
   voteMessage as nativeVoteMessage,
+  type SecretEntryDto,
   type Service,
   type UploadResult,
 } from "@chatbot/native";
@@ -50,6 +52,14 @@ let servicePromise: Promise<NativeService> | undefined;
 function getService() {
   servicePromise ??= createService();
   return servicePromise;
+}
+
+export async function initializeNativeService(): Promise<void> {
+  const service = await getService();
+
+  for (const secret of nativeGetSecrets(service) as SecretEntryDto[]) {
+    process.env[secret.key] = secret.value;
+  }
 }
 
 export function authenticateIapRequest(headers: {

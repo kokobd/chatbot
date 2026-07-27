@@ -6,4 +6,5 @@ pub mod iap_identity;
 pub mod message_service;
 pub mod object_storage;
 pub mod repository;
+pub mod secrets;
 pub mod user_service;
