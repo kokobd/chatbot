@@ -50,9 +50,9 @@ workspace name (`test`, `staging`, `prod`, and so on). Override it with
 `-var='cloud_build_branch=...'` when needed.
 
 Before the first apply that creates a trigger, connect the GitHub repository
-`kokobd/chatbot` to Cloud Build in the Cloud Build Triggers console. This is a
-one-time project-level OAuth connection and cannot be completed by Terraform
-without an existing repository mapping. After connecting it, rerun:
+`kokobd/chatbot` to the Cloud Build `us-central1` connection named `github`.
+This is a one-time project-level OAuth connection and cannot be completed by
+Terraform without an existing repository mapping. After connecting it, rerun:
 
 ```sh
 terraform apply

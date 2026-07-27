@@ -68,15 +68,13 @@ resource "google_artifact_registry_repository_iam_member" "cloud_build_writer" {
 
 resource "google_cloudbuild_trigger" "workspace" {
   project         = var.project_id
-  location        = "global"
+  location        = var.location
   name            = local.cloud_build_trigger_name
   filename        = "cloudbuild.yaml"
   service_account = google_service_account.cloud_build.name
 
-  github {
-    owner = "kokobd"
-    name  = "chatbot"
-
+  repository_event_config {
+    repository = local.cloud_build_repository
     push {
       branch = "^${local.cloud_build_branch}$"
     }

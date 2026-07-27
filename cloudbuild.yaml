@@ -32,4 +32,7 @@ substitutions:
 images:
   - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA
 
+options:
+  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
+
 timeout: 1800s
