@@ -28,9 +28,9 @@ variable "force_destroy" {
 }
 
 variable "cloud_build_branch" {
-  description = "Git branch that triggers the workspace Cloud Build trigger. Defaults to the workspace name."
+  description = "Git branch that triggers the workspace Cloud Build trigger. Defaults to main."
   type        = string
-  default     = null
+  default     = "main"
 
   validation {
     condition     = var.cloud_build_branch == null || can(regex("^[a-zA-Z0-9][a-zA-Z0-9._/-]*$", var.cloud_build_branch))
@@ -76,7 +76,7 @@ locals {
   bucket_name                = "chatbot-${local.environment}-${var.project_id}"
   firestore_database_name    = "chatbot-${local.environment}"
   firestore_is_production    = local.environment == "prod"
-  cloud_build_branch         = coalesce(var.cloud_build_branch, local.environment)
+  cloud_build_branch         = var.cloud_build_branch
   cloud_build_repository     = "projects/${var.project_id}/locations/${var.location}/connections/github/repositories/kokobd-chatbot"
   artifact_repository_name   = "chatbot-${local.environment}"
   cloud_build_trigger_name   = "chatbot-${local.environment}-build"

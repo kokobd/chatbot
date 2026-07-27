@@ -45,9 +45,8 @@ Firestore database.
 
 Terraform also provisions a workspace-specific Artifact Registry repository,
 Cloud Build trigger, Cloud Run service, runtime service account, and direct
-Cloud Run IAP policy. The default Cloud Build branch is the Terraform
-workspace name (`test`, `staging`, `prod`, and so on). Override it with
-`-var='cloud_build_branch=...'` when needed.
+Cloud Run IAP policy. The default Cloud Build branch is `main`. Override it
+with `-var='cloud_build_branch=...'` for another branch.
 
 Before the first apply that creates a trigger, connect the GitHub repository
 `kokobd/chatbot` to the Cloud Build `us-central1` connection named `github`.
