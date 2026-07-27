@@ -6,12 +6,6 @@ export const isTestEnvironment = Boolean(
     process.env.CI_PLAYWRIGHT
 );
 
-// Resumable streams are opt-in until the durable resume endpoint is complete.
-export const isResumableStreamsEnabled =
-  process.env.RESUMABLE_STREAMS_ENABLED === "1";
-export const isResumableStreamsClientEnabled =
-  process.env.NEXT_PUBLIC_RESUMABLE_STREAMS_ENABLED === "1";
-
 export const suggestions = [
   "What are the advantages of using Next.js?",
   "Write code to demonstrate Dijkstra's algorithm",

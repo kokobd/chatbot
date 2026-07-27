@@ -66,14 +66,6 @@ export declare function createDocument(
 
 export declare function createService(): Promise<ExternalObject<Service>>;
 
-export declare function createStream(
-  service: ExternalObject<Service>,
-  userId: string,
-  streamId: string,
-  chatId: string,
-  createdAt: string
-): Promise<StreamDto>;
-
 export declare function deleteAllChats(
   service: ExternalObject<Service>,
   userId: string
@@ -164,12 +156,6 @@ export declare function getSecrets(
   service: ExternalObject<Service>
 ): SecretEntryDto[];
 
-export declare function getStreams(
-  service: ExternalObject<Service>,
-  userId: string,
-  chatId: string
-): Promise<string[]>;
-
 export declare function getSuggestions(
   service: ExternalObject<Service>,
   userId: string,
@@ -221,12 +207,6 @@ export declare function saveSuggestions(
 export interface SecretEntryDto {
   key: string;
   value: string;
-}
-
-export interface StreamDto {
-  chatId: string;
-  createdAt: string;
-  id: string;
 }
 
 export interface SuggestionDto {

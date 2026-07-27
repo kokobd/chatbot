@@ -16,10 +16,8 @@ import {
   getMessage,
   getMessageCount,
   getMessages,
-  getStreams,
   getSuggestions,
   getVotes,
-  createStream as nativeCreateStream,
   getOrCreateIapUser as nativeGetOrCreateIapUser,
   saveDocument as nativeSaveDocument,
   saveMessages as nativeSaveMessages,
@@ -400,37 +398,4 @@ export async function getVotesByChatId({
     throw new ChatbotError("unauthorized:vote");
   }
   return database(getVotes(session.user.id, id));
-}
-
-export async function createStreamId({
-  chatId,
-  streamId,
-}: {
-  chatId: string;
-  streamId: string;
-}): Promise<void> {
-  const session = await auth();
-  if (!session?.user) {
-    return;
-  }
-  await database(
-    nativeCreateStream(
-      session.user.id,
-      streamId,
-      chatId,
-      new Date().toISOString()
-    )
-  );
-}
-
-export async function getStreamIdsByChatId({
-  chatId,
-}: {
-  chatId: string;
-}): Promise<string[]> {
-  const session = await auth();
-  if (!session?.user) {
-    return [];
-  }
-  return database(getStreams(session.user.id, chatId));
 }

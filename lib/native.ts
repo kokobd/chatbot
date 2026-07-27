@@ -9,7 +9,6 @@ import {
   authenticateIapRequest as nativeAuthenticateIapRequest,
   createChat as nativeCreateChat,
   createDocument as nativeCreateDocument,
-  createStream as nativeCreateStream,
   deleteAllChats as nativeDeleteAllChats,
   deleteChat as nativeDeleteChat,
   deleteDocumentsAfter as nativeDeleteDocumentsAfter,
@@ -23,7 +22,6 @@ import {
   getMessages as nativeGetMessages,
   getOrCreateIapUser as nativeGetOrCreateIapUser,
   getSecrets as nativeGetSecrets,
-  getStreams as nativeGetStreams,
   getSuggestions as nativeGetSuggestions,
   getVotes as nativeGetVotes,
   saveMessages as nativeSaveMessages,
@@ -382,28 +380,5 @@ export function voteMessage(
 export function getVotes(userId: string, chatId: string) {
   return getService().then((service) =>
     nativeGetVotes(service, userId, chatId)
-  );
-}
-
-export function createStream(
-  userId: string,
-  streamId: string,
-  chatId: string,
-  createdAt: Timestamp
-) {
-  return getService().then((service) =>
-    nativeCreateStream(
-      service,
-      userId,
-      streamId,
-      chatId,
-      createdAt instanceof Date ? createdAt.toISOString() : createdAt
-    )
-  );
-}
-
-export function getStreams(userId: string, chatId: string) {
-  return getService().then((service) =>
-    nativeGetStreams(service, userId, chatId)
   );
 }

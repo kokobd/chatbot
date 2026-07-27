@@ -108,24 +108,3 @@ impl Chat {
         PaginationPosition::new(self.created_at, self.id.clone())
     }
 }
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Stream {
-    pub id: String,
-    pub chat_id: String,
-    pub created_at: DateTime<Utc>,
-}
-
-impl Stream {
-    pub fn new(
-        id: impl AsRef<str>,
-        chat_id: impl AsRef<str>,
-        created_at: DateTime<Utc>,
-    ) -> Result<Self, ValidationError> {
-        Ok(Self {
-            id: validate_identifier(id.as_ref())?,
-            chat_id: validate_identifier(chat_id.as_ref())?,
-            created_at,
-        })
-    }
-}

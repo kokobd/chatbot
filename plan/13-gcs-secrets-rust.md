@@ -25,7 +25,6 @@ must reuse the same cached service handle.
   ```json
   {
     "OPENROUTER_API_KEY": "...",
-    "REDIS_URL": "..."
   }
   ```
 

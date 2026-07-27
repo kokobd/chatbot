@@ -2,13 +2,11 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  generateId,
   isStepCount,
   streamText,
   toUIMessageStream,
 } from "ai";
 import { after } from "next/server";
-import { createResumableStreamContext } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import { classifyAIError } from "@/lib/ai/error-classifier";
@@ -26,12 +24,8 @@ import { editDocument } from "@/lib/ai/tools/edit-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
+import { isProductionEnvironment } from "@/lib/constants";
 import {
-  isProductionEnvironment,
-  isResumableStreamsEnabled,
-} from "@/lib/constants";
-import {
-  createStreamId,
   deleteChatById,
   getChatById,
   getMessageCountByUserId,
@@ -56,14 +50,6 @@ function isModelStreamActivity(chunk: { type: string }) {
   return !["start", "start-step", "finish-step", "finish", "raw"].includes(
     chunk.type
   );
-}
-
-function getStreamContext() {
-  try {
-    return createResumableStreamContext({ waitUntil: after });
-  } catch {
-    return null;
-  }
 }
 
 function logAIProviderError(error: unknown, model: string) {
@@ -396,27 +382,7 @@ export async function POST(request: Request) {
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
     });
 
-    return createUIMessageStreamResponse({
-      async consumeSseStream({ stream: sseStream }) {
-        if (!isResumableStreamsEnabled || !process.env.REDIS_URL) {
-          return;
-        }
-        try {
-          const streamContext = getStreamContext();
-          if (streamContext) {
-            const streamId = generateId();
-            await createStreamId({ chatId: id, streamId });
-            await streamContext.createNewResumableStream(
-              streamId,
-              () => sseStream
-            );
-          }
-        } catch {
-          /* non-critical */
-        }
-      },
-      stream,
-    });
+    return createUIMessageStreamResponse({ stream });
   } catch (error) {
     if (error instanceof ChatbotError) {
       return error.toResponse();

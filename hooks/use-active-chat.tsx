@@ -21,9 +21,7 @@ import { useDataStream } from "@/components/chat/data-stream-provider";
 import { getChatHistoryPaginationKey } from "@/components/chat/sidebar-history";
 import { toast } from "@/components/chat/toast";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
-import { useAutoResume } from "@/hooks/use-auto-resume";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
-import { isResumableStreamsClientEnabled } from "@/lib/constants";
 import type { Vote } from "@/lib/db/types";
 import { ChatbotError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
@@ -116,7 +114,6 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     status,
     stop,
     regenerate,
-    resumeStream,
     addToolApprovalResponse,
   } = useChat<ChatMessage>({
     generateId: generateUUID,
@@ -274,13 +271,6 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       });
     }
   }, [sendMessage]);
-
-  useAutoResume({
-    autoResume: isResumableStreamsClientEnabled && !isNewChat && !!chatData,
-    initialMessages,
-    resumeStream,
-    setMessages,
-  });
 
   const isReadonly = isNewChat ? false : (chatData?.isReadonly ?? false);
 

@@ -168,15 +168,6 @@ pub struct VoteDto {
 }
 
 #[napi(object)]
-pub struct StreamDto {
-    pub id: String,
-    #[napi(js_name = "chatId")]
-    pub chat_id: String,
-    #[napi(js_name = "createdAt")]
-    pub created_at: String,
-}
-
-#[napi(object)]
 pub struct MessageInput {
     pub id: String,
     #[napi(js_name = "chatId")]
@@ -740,46 +731,6 @@ pub async fn get_votes(
                 })
                 .collect()
         })
-        .map_err(to_napi_error)
-}
-
-#[napi(js_name = "createStream")]
-pub async fn create_stream(
-    service: &External<Service>,
-    user_id: String,
-    stream_id: String,
-    chat_id: String,
-    created_at: String,
-) -> Result<StreamDto> {
-    let stream = domain::Stream::new(
-        stream_id,
-        chat_id,
-        parse_timestamp(&created_at).map_err(to_napi_error)?,
-    )
-    .map_err(|error| to_napi_error(boundary_error(error.to_string())))?;
-    service
-        .chats
-        .create_stream(&user_id, &stream)
-        .await
-        .map(|stream| StreamDto {
-            id: stream.id,
-            chat_id: stream.chat_id,
-            created_at: timestamp(stream.created_at),
-        })
-        .map_err(to_napi_error)
-}
-
-#[napi(js_name = "getStreams")]
-pub async fn get_streams(
-    service: &External<Service>,
-    user_id: String,
-    chat_id: String,
-) -> Result<Vec<String>> {
-    service
-        .chats
-        .list_streams(&user_id, &chat_id)
-        .await
-        .map(|streams| streams.into_iter().map(|stream| stream.id).collect())
         .map_err(to_napi_error)
 }
 

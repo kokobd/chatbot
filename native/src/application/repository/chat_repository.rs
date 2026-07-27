@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 
-use crate::domain::{Chat, PaginationPosition, Stream, ValidationError, Visibility, Vote};
+use crate::domain::{Chat, PaginationPosition, ValidationError, Visibility, Vote};
 
 use super::error::PersistenceError;
 
@@ -176,28 +176,6 @@ pub trait ChatRepository: Send + Sync {
     ) -> Result<Vec<Vote>, PersistenceError> {
         Err(PersistenceError::Internal {
             message: "vote persistence is not configured".to_string(),
-            retryable: false,
-        })
-    }
-
-    async fn create_stream(
-        &self,
-        _user_id: &str,
-        _stream: &Stream,
-    ) -> Result<Stream, PersistenceError> {
-        Err(PersistenceError::Internal {
-            message: "stream persistence is not configured".to_string(),
-            retryable: false,
-        })
-    }
-
-    async fn list_streams(
-        &self,
-        _user_id: &str,
-        _chat_id: &str,
-    ) -> Result<Vec<Stream>, PersistenceError> {
-        Err(PersistenceError::Internal {
-            message: "stream persistence is not configured".to_string(),
             retryable: false,
         })
     }

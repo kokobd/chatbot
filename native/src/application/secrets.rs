@@ -113,7 +113,7 @@ mod tests {
     #[tokio::test]
     async fn loads_string_values() {
         let loader = SecretLoader::new(FakeStore {
-            bytes: br#"{"OPENROUTER_API_KEY":"secret","REDIS_URL":"redis://example"}"#.to_vec(),
+            bytes: br#"{"OPENROUTER_API_KEY":"secret"}"#.to_vec(),
         });
 
         let values = loader.load("gs://bucket/app.json").await.unwrap();
@@ -121,10 +121,6 @@ mod tests {
         assert_eq!(
             values.get("OPENROUTER_API_KEY"),
             Some(&"secret".to_string())
-        );
-        assert_eq!(
-            values.get("REDIS_URL"),
-            Some(&"redis://example".to_string())
         );
     }
 

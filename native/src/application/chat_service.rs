@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::application::repository::{
     ChatHistoryPage, ChatHistoryQuery, ChatRepository, ChatTitle, PersistenceError,
 };
-use crate::domain::{Chat, Stream, ValidationError, Visibility, Vote};
+use crate::domain::{Chat, ValidationError, Visibility, Vote};
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ChatServiceError {
@@ -90,22 +90,6 @@ impl ChatService {
         chat_id: &str,
     ) -> Result<Vec<Vote>, ChatServiceError> {
         Ok(self.repository.list_votes(user_id, chat_id).await?)
-    }
-
-    pub async fn create_stream(
-        &self,
-        user_id: &str,
-        stream: &Stream,
-    ) -> Result<Stream, ChatServiceError> {
-        Ok(self.repository.create_stream(user_id, stream).await?)
-    }
-
-    pub async fn list_streams(
-        &self,
-        user_id: &str,
-        chat_id: &str,
-    ) -> Result<Vec<Stream>, ChatServiceError> {
-        Ok(self.repository.list_streams(user_id, chat_id).await?)
     }
 }
 
