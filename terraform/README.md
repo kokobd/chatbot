@@ -1,8 +1,9 @@
 # Chatbot infrastructure
 
 This Terraform root manages one environment per Terraform CLI workspace. The
-workspace name is intentionally open-ended: use names such as `dev`, `test`,
-`staging`, `prod`, or `feature-abcdef` without changing this configuration.
+workspace name is intentionally open-ended: use names such as `main`, `test`,
+`staging`, or `feature-abcdef` without changing this configuration. The `main`
+workspace is production.
 
 The application bucket is named
 `chatbot-<workspace>-<project_id>`, and the Firestore database is named
@@ -45,8 +46,10 @@ Firestore database.
 
 Terraform also provisions a workspace-specific Artifact Registry repository,
 Cloud Build trigger, Cloud Run service, runtime service account, and direct
-Cloud Run IAP policy. The default Cloud Build branch is `main`. Override it
-with `-var='cloud_build_branch=...'` for another branch.
+Cloud Run IAP policy. A workspace trigger runs only for pushes to the Git branch
+with the same name: `main` deploys the `main` workspace, `test` deploys the
+`test` workspace, and so on. Apply a workspace before pushing to its branch so
+its trigger and service exist.
 
 Before the first apply that creates a trigger, connect the GitHub repository
 `kokobd/chatbot` to the Cloud Build `us-central1` connection named `github`.
@@ -57,24 +60,12 @@ Terraform without an existing repository mapping. After connecting it, rerun:
 terraform apply
 ```
 
-The trigger builds and publishes an image; it does not deploy Cloud Run. The
-Cloud Run service starts with Google's hello-world image. Deploy an image built
-by Cloud Build explicitly with:
-
-```sh
-export SERVICE="$(terraform output -raw cloud_run_service_name)"
-export IMAGE="$(terraform output -raw artifact_repository)/service:${COMMIT_SHA}"
-gcloud run deploy "$SERVICE" \
-  --project="$(terraform output -raw firestore_project_id)" \
-  --region=us-central1 \
-  --image="$IMAGE" \
-  --no-allow-unauthenticated
-```
-
-The image is intentionally ignored by Terraform lifecycle management, while
-the service environment variables, service account, IAP configuration, and
-other infrastructure settings remain Terraform-managed. Keep deployment
-commands from replacing those environment variables or disabling IAP.
+The trigger checks the source, builds and pushes the runtime image, then deploys
+it to its workspace Cloud Run service. Cloud Run waits for the new revision to
+be Ready before the build succeeds. The image is intentionally ignored by
+Terraform lifecycle management, while Terraform continues to manage the service
+environment variables, service account, IAP configuration, and other
+infrastructure settings.
 
 ## Project-wide GCS secrets
 
@@ -90,20 +81,26 @@ gcloud storage buckets create "gs://${SECRETS_BUCKET}" \
   --public-access-prevention
 ```
 
-Each workspace secret object is a JSON map of environment-variable names to
-string values. Upload it and grant the workspace Cloud Run identity read
-access:
+Create exactly two JSON objects, each containing a map of environment-variable
+names to string values. `main` reads `production.json`; every other workspace
+reads `test.json`. Terraform grants each runtime service account read access to
+only the object it uses.
 
 ```sh
-gcloud storage cp ./test-secrets.json "$(terraform output -raw secrets_gcs_path)"
-gcloud storage buckets add-iam-policy-binding "gs://${SECRETS_BUCKET}" \
-  --member="serviceAccount:$(terraform output -raw runtime_service_account_email)" \
-  --role=roles/storage.objectViewer
+gcloud storage cp ./production.json "gs://${SECRETS_BUCKET}/production.json"
+gcloud storage cp ./test.json "gs://${SECRETS_BUCKET}/test.json"
+```
+
+The required secret in each file is its matching OpenRouter key:
+
+```json
+{ "OPENROUTER_API_KEY": "<OpenRouter key>" }
 ```
 
 Secret values are loaded once by the Rust native service during eager process
-startup. They are never stored in Terraform state or Cloud Build
-substitutions.
+startup. They are never stored in Terraform state, Cloud Build substitutions,
+or the Cloud Run service specification. Update a secret object before deploying
+a revision that needs it.
 
 The `test` workspace uses Firestore Native mode in the location configured by
 `firestore_location` (default `us-central1`). Apply it with:
@@ -117,7 +114,7 @@ terraform apply
 ```
 
 The Firestore API and named database are managed by Terraform. The database is
-empty when created; no application data is imported or migrated. The `prod`
+empty when created; no application data is imported or migrated. The `main`
 workspace enables point-in-time recovery and deletion protection, while other
 workspaces use a destroyable database.
 

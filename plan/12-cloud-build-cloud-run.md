@@ -2,12 +2,12 @@
 
 ## Goal
 
-Provision the application delivery infrastructure in Terraform while keeping
-container image deployments under explicit `gcloud` CLI control.
+Provision the application delivery infrastructure in Terraform with automatic
+workspace-specific Cloud Build deployments.
 
 Terraform must create the initial Cloud Run service with Google’s hello-world
 image, manage the service configuration and environment variables, and avoid
-replacing later application images deployed by `gcloud run deploy`.
+replacing application images deployed by Cloud Build.
 
 ## Scope
 
@@ -17,12 +17,11 @@ replacing later application images deployed by `gcloud run deploy`.
   repository name must match the workspace-specific `_REPOSITORY` substitution
   supplied to the existing `cloudbuild.yaml`.
 - Create a workspace-specific Cloud Build trigger for the GitHub repository
-  `kokobd/chatbot`, using `cloudbuild.yaml` and a push branch that defaults to
-  the current workspace. Support an explicit branch variable for workspaces
-  whose branch name differs from the workspace name.
-- The trigger builds and pushes the image only. It must not deploy Cloud Run;
-  application deployments remain an explicit `gcloud run deploy --image ...`
-  operation.
+  `kokobd/chatbot`, using `cloudbuild.yaml` and a push branch equal to the
+  current workspace name.
+- The trigger checks, builds, pushes, and deploys the image to its workspace
+  Cloud Run service. Grant its build identity Cloud Run deployment permission
+  and permission to act as that workspace's runtime service account.
 - Create a workspace-specific `google_cloud_run_v2_service` with:
   - `us-docker.pkg.dev/cloudrun/container/hello` as the initial image;
   - the workspace runtime service account;
@@ -39,17 +38,17 @@ replacing later application images deployed by `gcloud run deploy`.
 - Create a dedicated runtime service account per workspace. Grant it only the
   application permissions required by Terraform-managed resources, including
   Firestore data access and object creation on the public-upload bucket.
-  Output its email so the separately managed secrets bucket can grant it
-  object-reader access with `gcloud`.
+  Grant it conditional object-reader access to its selected object in the
+  separately managed secrets bucket.
 - Ignore only the Cloud Run container image in Terraform lifecycle handling.
   Terraform must continue to own the environment-variable map, service
   account, IAP settings, and other service configuration.
 - Add outputs for the service name and URI, image repository/path, trigger, the
   secret bucket/path contract, and runtime service-account email.
 - Document the one-time GitHub Cloud Build connection, IAP OAuth setup for the
-  external Gmail identity, workspace branch behavior, and the exact `gcloud`
-  image-deployment command. The deployment command must not disable IAP or
-  replace Terraform-managed environment variables.
+  external Gmail identity, workspace branch behavior, and automatic deployment.
+  The deployment step must not disable IAP or replace Terraform-managed
+  environment variables.
 
 ## Tests and checkpoint
 
@@ -60,7 +59,6 @@ Cloud Build substitutions are correct; and the Cloud Run plan contains the
 hello-world image, IAP configuration, and required environment variables.
 
 After applying in a test project, verify the IAP policy and unauthenticated
-request behavior, run a triggered Cloud Build, deploy a custom image with
-`gcloud`, and confirm a subsequent Terraform plan does not revert that image
-while still detecting Terraform-owned environment-variable drift.
-
+request behavior, run a triggered Cloud Build, and confirm its Ready revision
+uses the deployed image while a subsequent Terraform plan still detects
+Terraform-owned environment-variable drift.

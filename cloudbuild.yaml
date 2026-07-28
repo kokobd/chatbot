@@ -1,5 +1,5 @@
 steps:
-  # Building the test target runs the repository checks before any final image
+  # Building the test target runs the repository checks before any runtime image
   # is built or published.
   - name: gcr.io/cloud-builders/docker
     id: test
@@ -25,9 +25,32 @@ steps:
       - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA
       - .
 
+  - name: gcr.io/cloud-builders/docker
+    id: push
+    waitFor:
+      - build
+    args:
+      - push
+      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: deploy
+    waitFor:
+      - push
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --project=$PROJECT_ID
+      - --region=${_LOCATION}
+      - --image=${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA
+      - --quiet
+
 substitutions:
   _LOCATION: us-central1
   _REPOSITORY: chatbot
+  _SERVICE: chatbot
 
 images:
   - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA

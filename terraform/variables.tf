@@ -27,17 +27,6 @@ variable "force_destroy" {
   default     = true
 }
 
-variable "cloud_build_branch" {
-  description = "Git branch that triggers the workspace Cloud Build trigger. Defaults to main."
-  type        = string
-  default     = "main"
-
-  validation {
-    condition     = var.cloud_build_branch == null || can(regex("^[a-zA-Z0-9][a-zA-Z0-9._/-]*$", var.cloud_build_branch))
-    error_message = "cloud_build_branch must be a valid non-empty branch name."
-  }
-}
-
 variable "iap_user_email" {
   description = "Google account allowed to access the Cloud Run service through IAP."
   type        = string
@@ -60,29 +49,17 @@ variable "secrets_bucket_name" {
   }
 }
 
-variable "secrets_object_path" {
-  description = "Object path within the project-wide secrets bucket. Defaults to <workspace>/app.json."
-  type        = string
-  default     = null
-
-  validation {
-    condition     = var.secrets_object_path == null || can(regex("^[^/][^\\n]*[^/]$", var.secrets_object_path))
-    error_message = "secrets_object_path must be a non-empty relative GCS object path."
-  }
-}
-
 locals {
   environment                = terraform.workspace
   bucket_name                = "chatbot-${local.environment}-${var.project_id}"
   firestore_database_name    = "chatbot-${local.environment}"
-  firestore_is_production    = local.environment == "prod"
-  cloud_build_branch         = var.cloud_build_branch
+  firestore_is_production    = local.environment == "main"
   cloud_build_repository     = "projects/${var.project_id}/locations/${var.location}/connections/github/repositories/kokobd-chatbot"
   artifact_repository_name   = "chatbot-${local.environment}"
   cloud_build_trigger_name   = "chatbot-${local.environment}-build"
   cloud_run_service_name     = "chatbot-${local.environment}"
   secrets_bucket_name        = coalesce(var.secrets_bucket_name, "chatbot-secrets-${var.project_id}")
-  secrets_object_path        = coalesce(var.secrets_object_path, "${local.environment}/app.json")
+  secrets_object_path        = local.firestore_is_production ? "production.json" : "test.json"
   secrets_gcs_path           = "gs://${local.secrets_bucket_name}/${local.secrets_object_path}"
   runtime_service_account_id = "chatbot-run-${substr(sha1(local.environment), 0, 10)}"
   build_service_account_id   = "chatbot-build-${substr(sha1(local.environment), 0, 10)}"

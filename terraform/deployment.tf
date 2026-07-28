@@ -66,33 +66,6 @@ resource "google_artifact_registry_repository_iam_member" "cloud_build_writer" {
   member     = google_service_account.cloud_build.member
 }
 
-resource "google_cloudbuild_trigger" "workspace" {
-  project         = var.project_id
-  location        = var.location
-  name            = local.cloud_build_trigger_name
-  filename        = "cloudbuild.yaml"
-  service_account = google_service_account.cloud_build.name
-
-  repository_event_config {
-    repository = local.cloud_build_repository
-    push {
-      branch = "^${local.cloud_build_branch}$"
-    }
-  }
-
-  substitutions = {
-    _LOCATION   = var.location
-    _REPOSITORY = google_artifact_registry_repository.images.repository_id
-  }
-
-  depends_on = [
-    google_project_service.cloudbuild,
-    google_project_iam_member.cloud_build_builder,
-    google_project_iam_member.cloud_build_log_writer,
-    google_artifact_registry_repository_iam_member.cloud_build_writer,
-  ]
-}
-
 resource "google_service_account" "runtime" {
   project      = var.project_id
   account_id   = local.runtime_service_account_id
@@ -109,6 +82,60 @@ resource "google_storage_bucket_iam_member" "uploads_runtime_creator" {
   bucket = google_storage_bucket.uploads.name
   role   = "roles/storage.objectCreator"
   member = google_service_account.runtime.member
+}
+
+resource "google_storage_bucket_iam_member" "runtime_secrets_reader" {
+  bucket = local.secrets_bucket_name
+  role   = "roles/storage.objectViewer"
+  member = google_service_account.runtime.member
+
+  condition {
+    title       = "read-${replace(local.secrets_object_path, ".", "-")}"
+    description = "Allows this runtime service account to read its selected secret object."
+    expression  = "resource.name == 'projects/_/buckets/${local.secrets_bucket_name}/objects/${local.secrets_object_path}'"
+  }
+}
+
+resource "google_project_iam_member" "cloud_build_run_developer" {
+  project = var.project_id
+  role    = "roles/run.developer"
+  member  = google_service_account.cloud_build.member
+}
+
+resource "google_service_account_iam_member" "cloud_build_runtime_user" {
+  service_account_id = google_service_account.runtime.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = google_service_account.cloud_build.member
+}
+
+resource "google_cloudbuild_trigger" "workspace" {
+  project         = var.project_id
+  location        = var.location
+  name            = local.cloud_build_trigger_name
+  filename        = "cloudbuild.yaml"
+  service_account = google_service_account.cloud_build.name
+
+  repository_event_config {
+    repository = local.cloud_build_repository
+    push {
+      branch = "^${local.environment}$"
+    }
+  }
+
+  substitutions = {
+    _LOCATION   = var.location
+    _REPOSITORY = google_artifact_registry_repository.images.repository_id
+    _SERVICE    = google_cloud_run_v2_service.chatbot.name
+  }
+
+  depends_on = [
+    google_project_service.cloudbuild,
+    google_project_iam_member.cloud_build_builder,
+    google_project_iam_member.cloud_build_log_writer,
+    google_artifact_registry_repository_iam_member.cloud_build_writer,
+    google_project_iam_member.cloud_build_run_developer,
+    google_service_account_iam_member.cloud_build_runtime_user,
+  ]
 }
 
 resource "google_cloud_run_v2_service" "chatbot" {
@@ -173,6 +200,7 @@ resource "google_cloud_run_v2_service" "chatbot" {
     google_service_account.runtime,
     google_project_iam_member.runtime_firestore,
     google_storage_bucket_iam_member.uploads_runtime_creator,
+    google_storage_bucket_iam_member.runtime_secrets_reader,
   ]
 }
 

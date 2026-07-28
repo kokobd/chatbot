@@ -14,8 +14,8 @@ must reuse the same cached service handle.
 ## Secret contract
 
 - Terraform exposes `SECRETS_GCS_PATH` as a non-secret Cloud Run environment
-  variable. The default is a workspace-specific object such as
-  `gs://chatbot-secrets-<project-id>/<workspace>/app.json`.
+  variable. The `main` workspace selects `production.json`; every other
+  workspace selects `test.json` in the project-wide secrets bucket.
 - The bucket is project-wide and is intentionally not a Terraform resource.
   Create and manage it with `gcloud`, using uniform bucket-level access,
   public-access prevention, and no public IAM members.
@@ -81,10 +81,10 @@ must reuse the same cached service handle.
 
 ## CLI setup
 
-Document commands to create the project-wide bucket, upload workspace JSON
-objects, inspect object versions, and grant each Terraform-created runtime
-service account `roles/storage.objectViewer` on the bucket. Secret files must
-remain outside the repository and must never be printed by build or deploy
+Document commands to create the project-wide bucket, upload `production.json`
+and `test.json`, and inspect object versions. Terraform grants each runtime
+service account conditional reader access to its selected object. Secret files
+must remain outside the repository and must never be printed by build or deploy
 commands.
 
 ## Tests and checkpoint
