@@ -114,4 +114,4 @@ images:
 options:
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
 
-timeout: 1800s
+timeout: 14400s
