@@ -39,6 +39,30 @@ resource "google_artifact_registry_repository" "images" {
     managed_by  = "terraform"
   }
 
+  # Keep the latest successful deployment for every stage. All other images,
+  # including build caches and failed deployment candidates, expire after a day.
+  cleanup_policies {
+    id     = "keep-current-stage-deployments"
+    action = "KEEP"
+
+    condition {
+      tag_state    = "TAGGED"
+      tag_prefixes = ["deployed-"]
+    }
+  }
+
+  cleanup_policies {
+    id     = "delete-non-deployed-build-images"
+    action = "DELETE"
+
+    condition {
+      tag_state  = "ANY"
+      older_than = "86400s"
+    }
+  }
+
+  cleanup_policy_dry_run = false
+
   depends_on = [
     google_project_service.artifactregistry,
     terraform_data.environment_validation,
@@ -131,6 +155,7 @@ resource "google_cloudbuild_trigger" "workspace" {
     _LOCATION   = var.location
     _REPOSITORY = local.artifact_repository_name
     _SERVICE    = google_cloud_run_v2_service.chatbot.name
+    _STAGE      = local.environment
   }
 
   depends_on = [

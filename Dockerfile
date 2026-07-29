@@ -1,7 +1,9 @@
-FROM node:24-bookworm AS build
+FROM node:24-bookworm AS chef
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="${PNPM_HOME}:/root/.cargo/bin:${PATH}"
+# Keep cargo-chef, napi-rs, and the test command on the same artifacts path.
+ENV CARGO_TARGET_DIR="/app/native/target"
 
 WORKDIR /app
 
@@ -20,18 +22,47 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
 
 RUN corepack enable
 
+# Pin cargo-chef so dependency recipes remain reproducible across builds.
+RUN cargo install cargo-chef --version 0.1.77 --locked
+
+# cargo-chef derives a dependency-only recipe from the native crate before the
+# application build copies its source into the cacheable build stage.
+FROM chef AS planner
+
+WORKDIR /app/native
+
+COPY native ./
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS cache
+
+WORKDIR /app
+
 # Keep dependency installation cacheable until application sources change.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY native/package.json native/package.json
 RUN pnpm install --frozen-lockfile
 
+# Cache Rust dependencies for both the debug test target and the release N-API
+# build. The generated recipe changes only when Cargo metadata changes.
+COPY --from=planner /app/native/recipe.json native/recipe.json
+WORKDIR /app/native
+RUN cargo chef cook --locked --tests --recipe-path recipe.json \
+  && cargo chef cook --locked --release --recipe-path recipe.json
+# recipe.json is an internal cache input and must not reach repository checks.
+RUN rm recipe.json
+
+FROM cache AS build
+
+WORKDIR /app
 COPY . .
 RUN pnpm build
 
 FROM build AS test
 
 RUN pnpm check \
-  && cargo test --manifest-path native/Cargo.toml --lib --locked -- \
+  && cd native \
+  && cargo test --lib --locked -- \
     --skip infrastructure::firestore::tests::firestore_supports_required_primitives
 
 FROM node:24-bookworm-slim AS runtime

@@ -67,10 +67,16 @@ terraform apply
 
 The trigger checks the source, builds and pushes the runtime image, then deploys
 it to its workspace Cloud Run service. Cloud Run waits for the new revision to
-be Ready before the build succeeds. The image is intentionally ignored by
-Terraform lifecycle management, while Terraform continues to manage the service
-environment variables, service account, IAP configuration, and other
-infrastructure settings.
+be Ready before the build succeeds. After a successful deployment the build
+moves the image tag `deployed-<workspace>` (for example, `deployed-main`) to
+that revision. Artifact Registry retains the current successfully deployed
+image for each workspace indefinitely. All other images—including the reusable
+Docker dependency cache, superseded deployments, and failed deployment
+candidates—become eligible for deletion after one day. Cleanup is asynchronous,
+so an eligible image can remain until Artifact Registry's next background run.
+The image is intentionally ignored by Terraform lifecycle management, while
+Terraform continues to manage the service environment variables, service
+account, IAP configuration, and other infrastructure settings.
 
 ## Project-wide GCS secrets
 

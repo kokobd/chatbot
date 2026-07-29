@@ -1,24 +1,62 @@
 steps:
+  # A missing cache is expected on the first build or after its one-day expiry.
+  - name: gcr.io/cloud-builders/docker
+    id: pull-cache
+    entrypoint: bash
+    args:
+      - -c
+      - docker pull ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service-cache:cache || exit 0
+
   # Building the test target runs the repository checks before any runtime image
   # is built or published.
   - name: gcr.io/cloud-builders/docker
     id: test
+    waitFor:
+      - pull-cache
     args:
       - build
       - --progress=plain
+      - --cache-from
+      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service-cache:cache
       - --target
       - test
       - --tag
       - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA-ci
       - .
 
+  # Export only dependency layers, rather than a source-containing test image.
   - name: gcr.io/cloud-builders/docker
-    id: build
+    id: build-cache
     waitFor:
       - test
     args:
       - build
       - --progress=plain
+      - --cache-from
+      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service-cache:cache
+      - --target
+      - cache
+      - --tag
+      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service-cache:cache
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    id: push-cache
+    waitFor:
+      - build-cache
+    args:
+      - push
+      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service-cache:cache
+
+  - name: gcr.io/cloud-builders/docker
+    id: build
+    waitFor:
+      - push-cache
+    args:
+      - build
+      - --progress=plain
+      - --cache-from
+      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service-cache:cache
       - --target
       - runtime
       - --tag
@@ -47,10 +85,28 @@ steps:
       - --image=${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA
       - --quiet
 
+  # This moving tag is added only after Cloud Run accepts the new revision.
+  # Artifact Registry keeps the current successful deployment for each stage.
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: tag-deployed-image
+    waitFor:
+      - deploy
+    entrypoint: gcloud
+    args:
+      - artifacts
+      - docker
+      - tags
+      - add
+      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA
+      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:deployed-${_STAGE}
+      - --project=$PROJECT_ID
+      - --quiet
+
 substitutions:
   _LOCATION: us-central1
   _REPOSITORY: chatbot
   _SERVICE: chatbot
+  _STAGE: main
 
 images:
   - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA
