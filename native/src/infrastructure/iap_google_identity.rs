@@ -202,7 +202,7 @@ fn validate_identity_headers(
     }
 
     if let Some(subject) = evidence.authenticated_user_id.as_deref() {
-        if strip_accounts_namespace(subject) != Some(claims.sub.as_str()) {
+        if subject != claims.sub {
             return Err(IapIdentityProviderError::Rejected(
                 "IAP user ID header does not match JWT".to_string(),
             ));
@@ -235,7 +235,7 @@ mod tests {
             exp: now + 60,
             iat: now,
             iss: "https://cloud.google.com/iap".to_string(),
-            sub: "subject-1".to_string(),
+            sub: "accounts.google.com:subject-1".to_string(),
         }
     }
 
@@ -258,6 +258,17 @@ mod tests {
         };
 
         assert!(validate_identity_headers(&claims(), &evidence).is_err());
+    }
+
+    #[test]
+    fn accepts_matching_namespaced_user_id_header() {
+        let evidence = IapRequestEvidence {
+            authenticated_user_email: Some("accounts.google.com:user@example.com".to_string()),
+            authenticated_user_id: Some("accounts.google.com:subject-1".to_string()),
+            jwt_assertion: None,
+        };
+
+        assert!(validate_identity_headers(&claims(), &evidence).is_ok());
     }
 
     #[test]
