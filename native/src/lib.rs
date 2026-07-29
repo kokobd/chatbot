@@ -1,6 +1,7 @@
 mod application;
 pub mod domain;
 mod infrastructure;
+pub mod migration;
 mod service;
 
 pub use application::chat_service::{ChatService, ChatServiceError};
@@ -104,7 +105,6 @@ pub struct MessageDto {
     #[napi(js_name = "createdAt")]
     pub created_at: String,
 }
-
 
 #[napi(object)]
 pub struct VoteDto {

@@ -56,6 +56,10 @@ its trigger and service exist. Apply `main` before any other workspace so the
 shared repository exists; applying the other workspaces then removes their
 former workspace-specific repositories.
 
+The primary IAP user is configured with `iap_user_email`. Additional permanent
+users are configured with the versioned `iap_additional_user_emails` allowlist;
+do not supply it only on the command line, or a later apply could revoke access.
+
 Before the first apply that creates a trigger, connect the GitHub repository
 `kokobd/chatbot` to the Cloud Build `us-central1` connection named `github`.
 This is a one-time project-level OAuth connection and cannot be completed by

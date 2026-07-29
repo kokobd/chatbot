@@ -114,3 +114,24 @@ credential errors, verify `GCS_BUCKET`, the Firestore project/database IDs,
 and Application Default Credentials. If the e2e test cannot authenticate,
 verify `IAP_AUTH_PROVIDER`, `IAP_TEST_EMAIL`, and `IAP_TEST_SUBJECT` before
 rerunning it.
+
+## Temporary Open WebUI import
+
+`import_openwebui` is a local, one-off Rust binary. It is not part of the
+Cloud Run service and needs only Application Default Credentials with Firestore
+read/write access. The target account must first sign in through IAP so the
+application creates its IAP-linked user record.
+
+```bash
+FIRESTORE_PROJECT_ID=default-501702 \
+FIRESTORE_DATABASE_ID=chatbot-main \
+cargo run --manifest-path native/Cargo.toml --bin import_openwebui -- \
+  --input .scratch/openwebui.sql.zstd \
+  --target-email kokoybunny@gmail.com \
+  --dry-run
+```
+
+Use `--apply` only after the dry run succeeds. The binary imports text only,
+retains source IDs and timestamps for idempotent reruns, and verifies readback
+after applying. Remove this binary and its `zstd` dependency after the import
+has been verified in production.

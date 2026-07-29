@@ -257,3 +257,15 @@ resource "google_iap_web_cloud_run_service_iam_member" "allowed_user" {
 
   depends_on = [google_project_service.iap]
 }
+
+resource "google_iap_web_cloud_run_service_iam_member" "additional_allowed_user" {
+  for_each = var.iap_additional_user_emails
+
+  project                = var.project_id
+  location               = google_cloud_run_v2_service.chatbot.location
+  cloud_run_service_name = google_cloud_run_v2_service.chatbot.name
+  role                   = "roles/iap.httpsResourceAccessor"
+  member                 = "user:${each.value}"
+
+  depends_on = [google_project_service.iap]
+}

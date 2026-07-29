@@ -27,13 +27,6 @@ export const titleModel = {
 
 export const chatModels: ChatModel[] = [
   {
-    capabilities: { reasoning: true, vision: true },
-    description: "Multimodal reasoning model for complex work and coding",
-    id: "moonshotai/kimi-k3",
-    name: "Kimi K3",
-    provider: "moonshotai",
-  },
-  {
     capabilities: { reasoning: true, vision: false },
     description: "Large-scale reasoning model for coding and agent workflows",
     id: "deepseek/deepseek-v4-pro",
@@ -46,13 +39,6 @@ export const chatModels: ChatModel[] = [
     id: "deepseek/deepseek-v4-flash",
     name: "DeepSeek V4 Flash",
     provider: "deepseek",
-  },
-  {
-    capabilities: { reasoning: true, vision: false },
-    description: "Large-scale reasoning model from Z.ai",
-    id: "z-ai/glm-5.2",
-    name: "GLM 5.2",
-    provider: "zai",
   },
   {
     capabilities: { reasoning: false, vision: true },
@@ -74,6 +60,20 @@ export const chatModels: ChatModel[] = [
     id: "~google/gemini-flash-latest",
     name: "Gemini Flash Latest",
     provider: "google",
+  },
+  {
+    capabilities: { reasoning: true, vision: false },
+    description: "Large-scale reasoning model from Z.ai",
+    id: "z-ai/glm-5.2",
+    name: "GLM 5.2",
+    provider: "zai",
+  },
+  {
+    capabilities: { reasoning: true, vision: true },
+    description: "Multimodal reasoning model for complex work and coding",
+    id: "moonshotai/kimi-k3",
+    name: "Kimi K3",
+    provider: "moonshotai",
   },
 ];
 

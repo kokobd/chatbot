@@ -117,6 +117,43 @@ impl FirestoreUserRepository {
             .map(|document| document.into_iap_user(&document_id, subject))
             .transpose()
     }
+
+    /// Migration-only lookup for an already-authenticated account. Request
+    /// paths intentionally identify users by their stable IAP subject instead.
+    pub async fn find_user_ids_by_email(
+        &self,
+        email: &Email,
+    ) -> Result<Vec<String>, PersistenceError> {
+        let documents: Vec<UserDocument> = self
+            .db
+            .fluent()
+            .select()
+            .from(USERS_COLLECTION)
+            .filter(|filter| filter.field("email").eq(email.as_str().to_string()))
+            .obj()
+            .query()
+            .await
+            .map_err(|error| map_firestore_error(error, FirestoreOperation::Read))?;
+
+        documents
+            .into_iter()
+            .map(|document| {
+                let subject = IapSubject::new(&document.iap_subject)
+                    .map_err(|error| PersistenceError::CorruptData(error.to_string()))?;
+                let user = User::new(
+                    document.id.clone(),
+                    document.email,
+                    Some(subject.as_str()),
+                    document.created_at,
+                    document.updated_at,
+                )
+                .map_err(|error| PersistenceError::CorruptData(error.to_string()))?;
+                IapUser::new(subject, user)
+                    .map_err(|error| PersistenceError::CorruptData(error.to_string()))?;
+                Ok(document.id)
+            })
+            .collect()
+    }
 }
 
 #[async_trait]

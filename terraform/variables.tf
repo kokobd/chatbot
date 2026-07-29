@@ -38,6 +38,19 @@ variable "iap_user_email" {
   }
 }
 
+variable "iap_additional_user_emails" {
+  description = "Additional Google accounts allowed to access the Cloud Run service through IAP. Keep this allowlist under version control so future applies retain access."
+  type        = set(string)
+  default     = ["kokoybunny@gmail.com"]
+
+  validation {
+    condition = alltrue([
+      for email in var.iap_additional_user_emails : can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", email))
+    ])
+    error_message = "iap_additional_user_emails must contain only valid email addresses."
+  }
+}
+
 variable "secrets_bucket_name" {
   description = "Project-wide GCS bucket containing application secret objects. The bucket is managed outside Terraform."
   type        = string
