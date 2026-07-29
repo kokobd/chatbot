@@ -84,6 +84,10 @@ image is intentionally ignored by Terraform lifecycle management, while
 Terraform continues to manage the service environment variables, service
 account, IAP configuration, and other infrastructure settings.
 
+The `main` workspace also creates the narrowly scoped custom role that lets
+each Cloud Build service account replace its existing `deployed-<workspace>`
+tag; apply `main` before applying any other workspace, as described above.
+
 ## Project-wide GCS secrets
 
 The project-wide secrets bucket is intentionally managed outside Terraform.

@@ -95,6 +95,28 @@ resource "google_artifact_registry_repository_iam_member" "cloud_build_writer" {
   member     = google_service_account.cloud_build.member
 }
 
+# Moving a deployed-* tag replaces its previous value. The predefined Writer
+# role creates tags but deliberately cannot delete the tag being replaced.
+# Define this project-level role in the main workspace, which owns the shared
+# repository; every workspace binds it only to that repository.
+resource "google_project_iam_custom_role" "artifact_registry_tag_deleter" {
+  count = local.firestore_is_production ? 1 : 0
+
+  project     = var.project_id
+  role_id     = "artifactRegistryTagDeleter"
+  title       = "Artifact Registry tag deleter"
+  description = "Allows Cloud Build to replace deployed image tags."
+  permissions = ["artifactregistry.tags.delete"]
+}
+
+resource "google_artifact_registry_repository_iam_member" "cloud_build_tag_deleter" {
+  project    = var.project_id
+  location   = var.location
+  repository = local.artifact_repository_name
+  role       = "projects/${var.project_id}/roles/artifactRegistryTagDeleter"
+  member     = google_service_account.cloud_build.member
+}
+
 resource "google_service_account" "runtime" {
   project      = var.project_id
   account_id   = local.runtime_service_account_id
@@ -163,6 +185,7 @@ resource "google_cloudbuild_trigger" "workspace" {
     google_project_iam_member.cloud_build_builder,
     google_project_iam_member.cloud_build_log_writer,
     google_artifact_registry_repository_iam_member.cloud_build_writer,
+    google_artifact_registry_repository_iam_member.cloud_build_tag_deleter,
     google_project_iam_member.cloud_build_run_developer,
     google_service_account_iam_member.cloud_build_runtime_user,
   ]
