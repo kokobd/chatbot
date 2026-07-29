@@ -1,4 +1,37 @@
 steps:
+  # A later build cancels only active builds created before it on this branch.
+  # Sorting before selecting candidates keeps an older worker that starts late
+  # from ever cancelling a newer build.
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: cancel-superseded-builds
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        found_current=false
+        while IFS= read -r candidate; do
+          if [[ "$$candidate" == "$BUILD_ID" ]]; then
+            found_current=true
+            continue
+          fi
+
+          if [[ "$$found_current" == true ]]; then
+            # A build can finish after the list request; that race must not
+            # prevent the latest build from continuing.
+            gcloud builds cancel "$$candidate" \
+              --project="$PROJECT_ID" \
+              --region="${_LOCATION}" \
+              --quiet || true
+          fi
+        done < <(
+          gcloud builds list \
+            --project="$PROJECT_ID" \
+            --region="${_LOCATION}" \
+            --filter="tags='branch-${BRANCH_NAME}' AND (status='QUEUED' OR status='WORKING')" \
+            --sort-by='~createTime' \
+            --format='value(id)'
+        )
+
   # BuildKit imports and exports every stage in this one build. In particular,
   # the test stage feeds the production build, so Rust is built once for tests
   # and once for the N-API cdylib even when the registry cache is cold.
@@ -55,6 +88,9 @@ substitutions:
   _REPOSITORY: chatbot
   _SERVICE: chatbot
   _STAGE: main
+
+tags:
+  - branch-${BRANCH_NAME}
 
 options:
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
