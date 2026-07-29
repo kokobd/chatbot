@@ -101,12 +101,9 @@ export function ChatShell() {
               chatId={chatId}
               editingMessage={editingMessage}
               input={input}
-              isLoading={isLoading}
-              messages={messages}
               onCancelEdit={handleCancelEdit}
               onModelChange={setCurrentModelId}
               selectedModelId={currentModelId}
-              selectedVisibilityType={visibilityType}
               sendMessage={
                 editingMessage ? handleSendEditedMessage : sendMessage
               }

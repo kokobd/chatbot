@@ -75,21 +75,3 @@ test.describe("Chat Error Handling", () => {
     });
   });
 });
-
-test.describe("Suggested Actions", () => {
-  test("suggested actions are clickable", async ({ page }) => {
-    await page.goto("/");
-
-    const suggestions = page.locator(
-      "[data-testid='suggested-actions'] button"
-    );
-    const count = await suggestions.count();
-
-    if (count > 0) {
-      await suggestions.first().click();
-
-      // Should redirect after clicking suggestion
-      await expect(page).toHaveURL(CHAT_URL_REGEX, { timeout: 10_000 });
-    }
-  });
-});

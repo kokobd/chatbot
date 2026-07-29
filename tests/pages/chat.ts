@@ -44,13 +44,6 @@ export class ChatPage {
     return this.page.getByTestId("stop-button");
   }
 
-  async clickSuggestedAction(index = 0) {
-    const suggestions = this.page.locator(
-      "[data-testid='suggested-actions'] button"
-    );
-    await suggestions.nth(index).click();
-  }
-
   async openModelSelector() {
     const modelButton = this.page
       .locator("button")
