@@ -1,80 +1,28 @@
 steps:
-  # A missing cache is expected on the first build or after its one-day expiry.
-  - name: gcr.io/cloud-builders/docker
-    id: pull-cache
-    entrypoint: bash
-    args:
-      - -c
-      - docker pull ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service-cache:cache || exit 0
-
-  # Building the test target runs the repository checks before any runtime image
-  # is built or published.
-  - name: gcr.io/cloud-builders/docker
-    id: test
-    waitFor:
-      - pull-cache
-    args:
-      - build
-      - --progress=plain
-      - --cache-from
-      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service-cache:cache
-      - --target
-      - test
-      - --tag
-      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA-ci
-      - .
-
-  # Export only dependency layers, rather than a source-containing test image.
-  - name: gcr.io/cloud-builders/docker
-    id: build-cache
-    waitFor:
-      - test
-    args:
-      - build
-      - --progress=plain
-      - --cache-from
-      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service-cache:cache
-      - --target
-      - cache
-      - --tag
-      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service-cache:cache
-      - .
-
-  - name: gcr.io/cloud-builders/docker
-    id: push-cache
-    waitFor:
-      - build-cache
-    args:
-      - push
-      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service-cache:cache
-
+  # BuildKit imports and exports every stage in this one build. In particular,
+  # the test stage feeds the production build, so Rust is built once for tests
+  # and once for the N-API cdylib even when the registry cache is cold.
   - name: gcr.io/cloud-builders/docker
     id: build
-    waitFor:
-      - push-cache
+    entrypoint: bash
     args:
-      - build
-      - --progress=plain
-      - --cache-from
-      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service-cache:cache
-      - --target
-      - runtime
-      - --tag
-      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA
-      - .
-
-  - name: gcr.io/cloud-builders/docker
-    id: push
-    waitFor:
-      - build
-    args:
-      - push
-      - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA
+      - -ceu
+      - |
+        docker buildx create --use --driver docker-container
+        docker buildx inspect --bootstrap
+        docker buildx build \
+          --progress=plain \
+          --target runtime \
+          --tag ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA \
+          --push \
+          --cache-from type=registry,ref=${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service-cache:buildkit \
+          --cache-to type=registry,ref=${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service-cache:buildkit,mode=max \
+          .
 
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: deploy
     waitFor:
-      - push
+      - build
     entrypoint: gcloud
     args:
       - run
@@ -107,9 +55,6 @@ substitutions:
   _REPOSITORY: chatbot
   _SERVICE: chatbot
   _STAGE: main
-
-images:
-  - ${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/service:$COMMIT_SHA
 
 options:
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET

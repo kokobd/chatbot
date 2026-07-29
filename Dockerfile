@@ -43,27 +43,29 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY native/package.json native/package.json
 RUN pnpm install --frozen-lockfile
 
-# Cache Rust dependencies for both the debug test target and the release N-API
-# build. The generated recipe changes only when Cargo metadata changes.
+# Cache Rust dependencies for the release test and N-API targets. The generated
+# recipe changes only when Cargo metadata changes.
 COPY --from=planner /app/native/recipe.json native/recipe.json
 WORKDIR /app/native
-RUN cargo chef cook --locked --tests --recipe-path recipe.json \
-  && cargo chef cook --locked --release --recipe-path recipe.json
+RUN cargo chef cook --locked --release --tests --recipe-path recipe.json
 # recipe.json is an internal cache input and must not reach repository checks.
 RUN rm recipe.json
 
-FROM cache AS build
+FROM cache AS test
 
 WORKDIR /app
 COPY . .
-RUN pnpm build
-
-FROM build AS test
 
 RUN pnpm check \
   && cd native \
-  && cargo test --lib --locked -- \
+  && cargo test --release --lib --locked -- \
     --skip infrastructure::firestore::tests::firestore_supports_required_primitives
+
+FROM test AS build
+
+# The release test artifacts are already in CARGO_TARGET_DIR, so napi-rs only
+# builds the production cdylib that is distinct from the Rust test harness.
+RUN pnpm build
 
 FROM node:24-bookworm-slim AS runtime
 
