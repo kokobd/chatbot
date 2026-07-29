@@ -44,12 +44,17 @@ a feature environment, use `terraform workspace new feature-abcdef` and apply
 again. Each workspace has isolated remote state and a distinct bucket and
 Firestore database.
 
-Terraform also provisions a workspace-specific Artifact Registry repository,
+Terraform provisions one shared Artifact Registry repository (`chatbot`), owned
+by the `main` workspace. Every workspace's Cloud Build trigger can write to that
+repository; image names include the commit SHA, so images remain distinct
+without separate repositories. Terraform also provisions a workspace-specific
 Cloud Build trigger, Cloud Run service, runtime service account, and direct
 Cloud Run IAP policy. A workspace trigger runs only for pushes to the Git branch
 with the same name: `main` deploys the `main` workspace, `test` deploys the
 `test` workspace, and so on. Apply a workspace before pushing to its branch so
-its trigger and service exist.
+its trigger and service exist. Apply `main` before any other workspace so the
+shared repository exists; applying the other workspaces then removes their
+former workspace-specific repositories.
 
 Before the first apply that creates a trigger, connect the GitHub repository
 `kokobd/chatbot` to the Cloud Build `us-central1` connection named `github`.

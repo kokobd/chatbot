@@ -19,8 +19,8 @@ output "firestore_database_id" {
 }
 
 output "artifact_repository" {
-  description = "The Artifact Registry Docker repository for this workspace."
-  value       = "${var.location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.images.repository_id}"
+  description = "The shared Artifact Registry Docker repository for all workspaces."
+  value       = "${var.location}-docker.pkg.dev/${var.project_id}/${local.artifact_repository_name}"
 }
 
 output "cloud_build_trigger_name" {

@@ -55,7 +55,7 @@ locals {
   firestore_database_name    = "chatbot-${local.environment}"
   firestore_is_production    = local.environment == "main"
   cloud_build_repository     = "projects/${var.project_id}/locations/${var.location}/connections/github/repositories/kokobd-chatbot"
-  artifact_repository_name   = "chatbot-${local.environment}"
+  artifact_repository_name   = "chatbot"
   cloud_build_trigger_name   = "chatbot-${local.environment}-build"
   cloud_run_service_name     = "chatbot-${local.environment}"
   secrets_bucket_name        = coalesce(var.secrets_bucket_name, "chatbot-secrets-${var.project_id}")

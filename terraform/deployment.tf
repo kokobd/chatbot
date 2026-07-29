@@ -27,12 +27,17 @@ resource "google_project_service" "iap" {
 }
 
 resource "google_artifact_registry_repository" "images" {
+  count = local.firestore_is_production ? 1 : 0
+
   project       = var.project_id
   location      = var.location
   repository_id = local.artifact_repository_name
   format        = "DOCKER"
-  description   = "Container images for the ${local.environment} chatbot environment."
-  labels        = local.labels
+  description   = "Shared container images for chatbot environments."
+  labels = {
+    application = "chatbot"
+    managed_by  = "terraform"
+  }
 
   depends_on = [
     google_project_service.artifactregistry,
@@ -60,8 +65,8 @@ resource "google_project_iam_member" "cloud_build_log_writer" {
 
 resource "google_artifact_registry_repository_iam_member" "cloud_build_writer" {
   project    = var.project_id
-  location   = google_artifact_registry_repository.images.location
-  repository = google_artifact_registry_repository.images.repository_id
+  location   = var.location
+  repository = local.artifact_repository_name
   role       = "roles/artifactregistry.writer"
   member     = google_service_account.cloud_build.member
 }
@@ -124,7 +129,7 @@ resource "google_cloudbuild_trigger" "workspace" {
 
   substitutions = {
     _LOCATION   = var.location
-    _REPOSITORY = google_artifact_registry_repository.images.repository_id
+    _REPOSITORY = local.artifact_repository_name
     _SERVICE    = google_cloud_run_v2_service.chatbot.name
   }
 
