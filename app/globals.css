@@ -448,12 +448,6 @@ textarea:focus-visible {
   border-radius: 2px;
 }
 
-.suggestion-highlight {
-  -webkit-user-select: none;
-  user-select: none;
-  @apply cursor-pointer rounded-sm bg-blue-200 transition-colors hover:bg-blue-300 dark:bg-blue-500/40 dark:text-blue-50 dark:hover:bg-blue-400/50;
-}
-
 @layer base {
   * {
     scrollbar-color: oklch(0 0 0 / 0.12) transparent;
@@ -493,8 +487,4 @@ textarea:focus-visible {
   *::-webkit-scrollbar-corner {
     background: transparent;
   }
-}
-
-[data-testid="artifact"] {
-  isolation: isolate;
 }

@@ -2,7 +2,6 @@ use bytes::Bytes;
 use napi_derive::napi;
 use thiserror::Error;
 
-use crate::application::artifact_service::{ArtifactService, ArtifactServiceError};
 use crate::application::chat_service::{ChatService, ChatServiceError};
 use crate::application::file_upload::{FileUploadError, FileUploadService, UploadResult};
 use crate::application::iap_authentication::{IapAuthenticationError, IapAuthenticationService};
@@ -11,11 +10,10 @@ use crate::application::iap_identity::{
 };
 use crate::application::message_service::{MessageService, MessageServiceError};
 use crate::application::repository::{
-    ArtifactRepository, ChatRepository, MessageRepository, UserRepository,
+    ChatRepository, MessageRepository, UserRepository,
 };
 use crate::application::secrets::{SecretLoadError, SecretLoader, SecretMap};
 use crate::application::user_service::{UserService, UserServiceError};
-use crate::infrastructure::firestore_artifact_repository::FirestoreArtifactRepository;
 use crate::infrastructure::firestore_chat_repository::FirestoreChatRepository;
 use crate::infrastructure::firestore_message_repository::FirestoreMessageRepository;
 use crate::infrastructure::firestore_user_repository::FirestoreUserRepository;
@@ -32,7 +30,6 @@ pub struct Service {
     pub(crate) users: UserService,
     pub(crate) chats: ChatService,
     pub(crate) messages: MessageService,
-    pub(crate) artifacts: ArtifactService,
     secrets: SecretMap,
 }
 
@@ -53,8 +50,6 @@ pub enum ServiceError {
     #[error(transparent)]
     Message(#[from] MessageServiceError),
     #[error(transparent)]
-    Artifact(#[from] ArtifactServiceError),
-    #[error(transparent)]
     SecretsConfiguration(#[from] SecretLoadError),
     #[error("invalid native request: {0}")]
     InvalidRequest(String),
@@ -67,7 +62,6 @@ impl Service {
         users: UserService,
         chats: ChatService,
         messages: MessageService,
-        artifacts: ArtifactService,
         secrets: SecretMap,
     ) -> Self {
         Self {
@@ -76,7 +70,6 @@ impl Service {
             users,
             chats,
             messages,
-            artifacts,
             secrets,
         }
     }
@@ -132,7 +125,6 @@ pub async fn create_service() -> Result<Service, ServiceError> {
     let chats: Arc<dyn ChatRepository> = Arc::new(FirestoreChatRepository::new(db.clone()));
     let messages: Arc<dyn MessageRepository> =
         Arc::new(FirestoreMessageRepository::new(db.clone()));
-    let artifacts: Arc<dyn ArtifactRepository> = Arc::new(FirestoreArtifactRepository::new(db));
 
     Ok(Service::new(
         authentication,
@@ -140,7 +132,6 @@ pub async fn create_service() -> Result<Service, ServiceError> {
         UserService::new(users),
         ChatService::new(chats),
         MessageService::new(messages),
-        ArtifactService::new(artifacts),
         secrets,
     ))
 }

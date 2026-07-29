@@ -35,7 +35,6 @@ type ActiveChatContextValue = {
   status: UseChatHelpers<ChatMessage>["status"];
   stop: UseChatHelpers<ChatMessage>["stop"];
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
-  addToolApprovalResponse: UseChatHelpers<ChatMessage>["addToolApprovalResponse"];
   input: string;
   setInput: Dispatch<SetStateAction<string>>;
   visibilityType: VisibilityType;
@@ -55,7 +54,7 @@ function extractChatId(pathname: string): string | null {
 
 export function ActiveChatProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { setDataStream, setWaitingStatus } = useDataStream();
+  const { setWaitingStatus } = useDataStream();
   const { mutate } = useSWRConfig();
 
   const chatIdFromUrl = extractChatId(pathname);
@@ -107,113 +106,79 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     ? "private"
     : (chatData?.visibility ?? "private");
 
-  const {
-    messages,
-    setMessages,
-    sendMessage,
-    status,
-    stop,
-    regenerate,
-    addToolApprovalResponse,
-  } = useChat<ChatMessage>({
-    generateId: generateUUID,
-    id: chatId,
-    messages: initialMessages,
-    onData: (dataPart) => {
-      if (dataPart.type === "data-waiting-status") {
-        setWaitingStatus(dataPart.data);
-        return;
-      }
-      setDataStream((ds) => (ds ? [...ds, dataPart] : []));
-    },
-    onError: (error) => {
-      if (error instanceof ChatbotError) {
-        toast({ description: error.message, type: "error" });
-      } else {
-        toast({
-          description: error.message || "Oops, an error occurred!",
-          type: "error",
-        });
-      }
-    },
-    onFinish: () => {
-      mutate(unstable_serialize(getChatHistoryPaginationKey));
-    },
-    sendAutomaticallyWhen: ({ messages: currentMessages }) => {
-      const lastMessage = currentMessages.at(-1);
-      return (
-        lastMessage?.parts?.some(
-          (part) =>
-            "state" in part &&
-            part.state === "approval-responded" &&
-            "approval" in part &&
-            (part.approval as { approved?: boolean })?.approved === true
-        ) ?? false
-      );
-    },
-    transport: useMemo(
-      () =>
-        new DefaultChatTransport({
-          api: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat`,
-          fetch: async (requestInput, init) => {
-            const response = await fetchWithErrorHandlers(requestInput, init);
+  const { messages, setMessages, sendMessage, status, stop, regenerate } =
+    useChat<ChatMessage>({
+      generateId: generateUUID,
+      id: chatId,
+      messages: initialMessages,
+      onData: (dataPart) => {
+        if (dataPart.type === "data-waiting-status") {
+          setWaitingStatus(dataPart.data);
+        }
+      },
+      onError: (error) => {
+        if (error instanceof ChatbotError) {
+          toast({ description: error.message, type: "error" });
+        } else {
+          toast({
+            description: error.message || "Oops, an error occurred!",
+            type: "error",
+          });
+        }
+      },
+      onFinish: () => {
+        mutate(unstable_serialize(getChatHistoryPaginationKey));
+      },
+      transport: useMemo(
+        () =>
+          new DefaultChatTransport({
+            api: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat`,
+            fetch: async (requestInput, init) => {
+              const response = await fetchWithErrorHandlers(requestInput, init);
 
-            // The server has persisted the parent and initial user message
-            // before returning the stream response. Only then expose the chat
-            // URL, so message reads cannot race parent creation.
-            if (
-              typeof window !== "undefined" &&
-              init?.method === "POST" &&
-              typeof init.body === "string"
-            ) {
-              try {
-                const body = JSON.parse(init.body) as {
-                  id?: string;
-                  message?: { role?: string };
-                };
-                if (body.message?.role === "user" && body.id) {
-                  window.history.pushState(
-                    {},
-                    "",
-                    `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${body.id}`
-                  );
+              // The server has persisted the parent and initial user message
+              // before returning the stream response. Only then expose the chat
+              // URL, so message reads cannot race parent creation.
+              if (
+                typeof window !== "undefined" &&
+                init?.method === "POST" &&
+                typeof init.body === "string"
+              ) {
+                try {
+                  const body = JSON.parse(init.body) as {
+                    id?: string;
+                    message?: { role?: string };
+                  };
+                  if (body.message?.role === "user" && body.id) {
+                    window.history.pushState(
+                      {},
+                      "",
+                      `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${body.id}`
+                    );
+                  }
+                } catch {
+                  // The API will report malformed transport data.
                 }
-              } catch {
-                // The API will report malformed transport data.
               }
-            }
 
-            return response;
-          },
-          prepareSendMessagesRequest(request) {
-            const lastMessage = request.messages.at(-1);
-            const isToolApprovalContinuation =
-              lastMessage?.role !== "user" ||
-              request.messages.some((msg) =>
-                msg.parts?.some((part) => {
-                  const { state } = part as { state?: string };
-                  return (
-                    state === "approval-responded" || state === "output-denied"
-                  );
-                })
-              );
-
-            return {
-              body: {
-                id: request.id,
-                ...(isToolApprovalContinuation
-                  ? { messages: request.messages }
-                  : { message: lastMessage }),
-                selectedChatModel: currentModelIdRef.current,
-                selectedVisibilityType: visibility,
-                ...request.body,
-              },
-            };
-          },
-        }),
-      [visibility]
-    ),
-  });
+              return response;
+            },
+            prepareSendMessagesRequest(request) {
+              const lastMessage = request.messages.at(-1);
+              return {
+                body: {
+                  id: request.id,
+                  message: lastMessage,
+                  selectedChatModel: currentModelIdRef.current,
+                  selectedVisibilityType: visibility,
+                  ...request.body,
+                },
+              };
+            },
+          }),
+        [visibility]
+      ),
+    });
 
   useEffect(() => {
     if (status === "submitted" || status === "ready" || status === "error") {
@@ -284,7 +249,6 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<ActiveChatContextValue>(
     () => ({
-      addToolApprovalResponse,
       chatId,
       currentModelId,
       input,
@@ -309,7 +273,6 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       status,
       stop,
       regenerate,
-      addToolApprovalResponse,
       input,
       visibility,
       isReadonly,

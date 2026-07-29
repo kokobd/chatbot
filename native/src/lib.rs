@@ -3,21 +3,18 @@ pub mod domain;
 mod infrastructure;
 mod service;
 
-pub use application::artifact_service::{ArtifactService, ArtifactServiceError};
 pub use application::chat_service::{ChatService, ChatServiceError};
 pub use application::message_service::{MessageService, MessageServiceError};
 pub use application::repository::{
-    ArtifactRepository, ChatHistoryCursor, ChatHistoryPage, ChatHistoryQuery, ChatRepository,
+    ChatHistoryCursor, ChatHistoryPage, ChatHistoryQuery, ChatRepository,
     ChatTitle, Email, IapUser, MessageParts, MessageQuery, MessageRepository, PersistenceError,
     UserRepository,
 };
 pub use application::user_service::{UserService, UserServiceError};
-pub use infrastructure::firestore_artifact_repository::FirestoreArtifactRepository;
 pub use infrastructure::firestore_chat_repository::FirestoreChatRepository;
 pub use infrastructure::firestore_message_repository::FirestoreMessageRepository;
 pub use infrastructure::firestore_user_repository::FirestoreUserRepository;
 
-use application::artifact_service::ArtifactServiceError as NativeArtifactServiceError;
 use application::file_upload::UploadResult as ApplicationUploadResult;
 use application::iap_authentication::IapAuthenticationError;
 use application::iap_identity::{
@@ -35,7 +32,6 @@ use serde::Serialize;
 use serde_json::Value;
 use service::{create_service as compose_service, Service, ServiceError};
 use std::result::Result as StdResult;
-use uuid::Uuid;
 
 #[napi(object)]
 pub struct IapRequestHeaders {
@@ -109,53 +105,6 @@ pub struct MessageDto {
     pub created_at: String,
 }
 
-#[napi(object)]
-pub struct ArtifactDto {
-    pub id: String,
-    #[napi(js_name = "userId")]
-    pub user_id: String,
-    pub title: String,
-    pub kind: String,
-    pub content: Option<String>,
-    #[napi(js_name = "createdAt")]
-    pub created_at: String,
-    #[napi(js_name = "headVersionId")]
-    pub head_version_id: Option<String>,
-}
-
-#[napi(object)]
-pub struct DocumentDto {
-    pub id: String,
-    #[napi(js_name = "versionId")]
-    pub version_id: String,
-    #[napi(js_name = "userId")]
-    pub user_id: String,
-    pub title: String,
-    pub kind: String,
-    pub content: Option<String>,
-    #[napi(js_name = "createdAt")]
-    pub created_at: String,
-}
-
-#[napi(object)]
-pub struct SuggestionDto {
-    pub id: String,
-    #[napi(js_name = "documentId")]
-    pub document_id: String,
-    #[napi(js_name = "versionId")]
-    pub version_id: String,
-    #[napi(js_name = "userId")]
-    pub user_id: String,
-    #[napi(js_name = "originalText")]
-    pub original_text: String,
-    #[napi(js_name = "suggestedText")]
-    pub suggested_text: String,
-    pub description: Option<String>,
-    #[napi(js_name = "isResolved")]
-    pub is_resolved: bool,
-    #[napi(js_name = "createdAt")]
-    pub created_at: String,
-}
 
 #[napi(object)]
 pub struct VoteDto {
@@ -181,25 +130,6 @@ pub struct MessageInput {
     pub created_at: String,
 }
 
-#[napi(object)]
-pub struct SuggestionInput {
-    pub id: String,
-    #[napi(js_name = "documentId")]
-    pub document_id: String,
-    #[napi(js_name = "versionId")]
-    pub version_id: String,
-    #[napi(js_name = "userId")]
-    pub user_id: String,
-    #[napi(js_name = "originalText")]
-    pub original_text: String,
-    #[napi(js_name = "suggestedText")]
-    pub suggested_text: String,
-    pub description: Option<String>,
-    #[napi(js_name = "isResolved")]
-    pub is_resolved: bool,
-    #[napi(js_name = "createdAt")]
-    pub created_at: String,
-}
 
 #[napi(object)]
 pub struct ChatHistoryDto {
@@ -306,15 +236,6 @@ fn service_error_payload(error: &ServiceError) -> NapiErrorPayload {
                 }
             }
         },
-        ServiceError::Artifact(error) => match error {
-            NativeArtifactServiceError::Persistence(error) => persistence_error_payload(error),
-            NativeArtifactServiceError::Validation(error) => NapiErrorPayload {
-                category: "invalid_input".to_string(),
-                retryable: false,
-                message: error.to_string(),
-                reconciliation: None,
-            },
-        },
         ServiceError::InvalidRequest(message) => NapiErrorPayload {
             category: "invalid_input".to_string(),
             retryable: false,
@@ -374,16 +295,6 @@ fn json_string(value: &Value) -> StdResult<String, ServiceError> {
 
 fn parse_json(value: &str) -> StdResult<Value, ServiceError> {
     serde_json::from_str(value).map_err(|error| boundary_error(format!("invalid JSON: {error}")))
-}
-
-fn content_text(value: &Option<Value>) -> StdResult<Option<String>, ServiceError> {
-    value
-        .as_ref()
-        .map(|value| match value {
-            Value::String(value) => Ok(value.clone()),
-            value => json_string(value),
-        })
-        .transpose()
 }
 
 impl From<ApplicationUploadResult> for UploadResult {
@@ -447,38 +358,6 @@ fn message_dto(message: domain::Message) -> StdResult<MessageDto, ServiceError> 
         attachments: json_string(&message.attachments)?,
         created_at: timestamp(message.created_at),
     })
-}
-
-fn document_dto(
-    artifact: &domain::Artifact,
-    version: domain::DocumentVersion,
-) -> StdResult<DocumentDto, ServiceError> {
-    Ok(DocumentDto {
-        id: artifact.id.clone(),
-        version_id: version.version_id,
-        user_id: artifact.user_id.clone(),
-        title: artifact.title.clone(),
-        kind: serde_json::to_string(&artifact.kind)
-            .unwrap()
-            .trim_matches('"')
-            .to_string(),
-        content: content_text(&version.content)?,
-        created_at: timestamp(version.created_at),
-    })
-}
-
-fn suggestion_dto(suggestion: domain::Suggestion) -> SuggestionDto {
-    SuggestionDto {
-        id: suggestion.id,
-        document_id: suggestion.document_id,
-        version_id: suggestion.version_id,
-        user_id: suggestion.user_id,
-        original_text: suggestion.original_text,
-        suggested_text: suggestion.suggested_text,
-        description: suggestion.description,
-        is_resolved: suggestion.is_resolved,
-        created_at: timestamp(suggestion.created_at),
-    }
 }
 
 #[napi(js_name = "createService")]
@@ -851,179 +730,5 @@ pub async fn delete_messages_after(
         .into_iter()
         .map(message_dto)
         .collect::<StdResult<Vec<_>, _>>()
-        .map_err(to_napi_error)
-}
-
-#[napi(js_name = "createDocument")]
-pub async fn create_document(
-    service: &External<Service>,
-    id: String,
-    user_id: String,
-    title: String,
-    kind: String,
-    content: String,
-) -> Result<DocumentDto> {
-    let kind = domain::ArtifactKind::parse(&kind)
-        .map_err(|error| to_napi_error(boundary_error(error.to_string())))?;
-    let now = Utc::now();
-    let artifact = domain::Artifact::new(id.clone(), user_id.clone(), title, kind, None, now)
-        .map_err(|error| to_napi_error(boundary_error(error.to_string())))?;
-    let artifact = match service.artifacts.create_artifact(&artifact).await {
-        Ok(artifact) => artifact,
-        Err(NativeArtifactServiceError::Persistence(NativePersistenceError::Conflict)) => service
-            .artifacts
-            .find_artifact(&user_id, &id)
-            .await
-            .map_err(to_napi_error)?
-            .ok_or_else(|| {
-                to_napi_error(ServiceError::Artifact(
-                    NativeArtifactServiceError::Persistence(NativePersistenceError::Conflict),
-                ))
-            })?,
-        Err(error) => return Err(to_napi_error(ServiceError::Artifact(error))),
-    };
-    let version = domain::DocumentVersion::new(
-        Uuid::new_v4().to_string(),
-        id,
-        now,
-        Some(Value::String(content)),
-    )
-    .map_err(|error| to_napi_error(boundary_error(error.to_string())))?;
-    service
-        .artifacts
-        .save_document_version(&user_id, &version)
-        .await
-        .map_err(to_napi_error)
-        .and_then(|version| document_dto(&artifact, version).map_err(to_napi_error))
-}
-
-#[napi(js_name = "getDocuments")]
-pub async fn get_documents(
-    service: &External<Service>,
-    user_id: String,
-    document_id: String,
-) -> Result<Vec<DocumentDto>> {
-    let artifact = service
-        .artifacts
-        .find_artifact(&user_id, &document_id)
-        .await
-        .map_err(to_napi_error)?
-        .ok_or_else(|| {
-            to_napi_error(ServiceError::Artifact(
-                NativeArtifactServiceError::Persistence(NativePersistenceError::NotFound),
-            ))
-        })?;
-    service
-        .artifacts
-        .get_document_versions(&user_id, &document_id)
-        .await
-        .map_err(to_napi_error)?
-        .into_iter()
-        .map(|version| document_dto(&artifact, version).map_err(to_napi_error))
-        .collect()
-}
-
-#[napi(js_name = "getDocument")]
-pub async fn get_document(
-    service: &External<Service>,
-    user_id: String,
-    document_id: String,
-) -> Result<Option<DocumentDto>> {
-    let Some(artifact) = service
-        .artifacts
-        .find_artifact(&user_id, &document_id)
-        .await
-        .map_err(to_napi_error)?
-    else {
-        return Ok(None);
-    };
-    service
-        .artifacts
-        .get_latest_document_version(&user_id, &document_id)
-        .await
-        .map_err(to_napi_error)?
-        .map(|version| document_dto(&artifact, version).map_err(to_napi_error))
-        .transpose()
-}
-
-#[napi(js_name = "deleteDocumentsAfter")]
-pub async fn delete_documents_after(
-    service: &External<Service>,
-    user_id: String,
-    document_id: String,
-    cutoff: String,
-) -> Result<Vec<DocumentDto>> {
-    let artifact = service
-        .artifacts
-        .find_artifact(&user_id, &document_id)
-        .await
-        .map_err(to_napi_error)?
-        .ok_or_else(|| {
-            to_napi_error(ServiceError::Artifact(
-                NativeArtifactServiceError::Persistence(NativePersistenceError::NotFound),
-            ))
-        })?;
-    service
-        .artifacts
-        .delete_document_versions_after(
-            &user_id,
-            &document_id,
-            parse_timestamp(&cutoff).map_err(to_napi_error)?,
-        )
-        .await
-        .map_err(to_napi_error)?
-        .into_iter()
-        .map(|version| document_dto(&artifact, version).map_err(to_napi_error))
-        .collect()
-}
-
-#[napi(js_name = "saveSuggestions")]
-pub async fn save_suggestions(
-    service: &External<Service>,
-    inputs: Vec<SuggestionInput>,
-) -> Result<Vec<SuggestionDto>> {
-    let suggestions = inputs
-        .into_iter()
-        .map(|input| {
-            domain::Suggestion::new(
-                input.id,
-                input.document_id,
-                input.version_id,
-                input.user_id,
-                input.original_text,
-                input.suggested_text,
-                input.description,
-                parse_timestamp(&input.created_at)?,
-            )
-            .map(|suggestion| suggestion.with_resolved(input.is_resolved))
-            .map_err(|error| boundary_error(error.to_string()))
-        })
-        .collect::<StdResult<Vec<_>, _>>()
-        .map_err(to_napi_error)?;
-    service
-        .artifacts
-        .save_suggestions(
-            suggestions
-                .first()
-                .map(|suggestion| suggestion.user_id.as_str())
-                .unwrap_or_default(),
-            &suggestions,
-        )
-        .await
-        .map_err(to_napi_error)
-        .map(|suggestions| suggestions.into_iter().map(suggestion_dto).collect())
-}
-
-#[napi(js_name = "getSuggestions")]
-pub async fn get_suggestions(
-    service: &External<Service>,
-    user_id: String,
-    document_id: String,
-) -> Result<Vec<SuggestionDto>> {
-    service
-        .artifacts
-        .get_suggestions_by_document_id(&user_id, &document_id)
-        .await
-        .map(|suggestions| suggestions.into_iter().map(suggestion_dto).collect())
         .map_err(to_napi_error)
 }

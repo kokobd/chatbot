@@ -2,7 +2,6 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  isStepCount,
   streamText,
   toUIMessageStream,
 } from "ai";
@@ -19,11 +18,6 @@ import {
 } from "@/lib/ai/models";
 import { systemPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
-import { createDocument } from "@/lib/ai/tools/create-document";
-import { editDocument } from "@/lib/ai/tools/edit-document";
-import { getWeather } from "@/lib/ai/tools/get-weather";
-import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
-import { updateDocument } from "@/lib/ai/tools/update-document";
 import { isProductionEnvironment } from "@/lib/constants";
 import {
   deleteChatById,
@@ -33,7 +27,6 @@ import {
   saveChat,
   saveMessages,
   updateChatTitleById,
-  updateMessage,
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/types";
 import { ChatbotError } from "@/lib/errors";
@@ -77,7 +70,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, message, messages, selectedChatModel, selectedVisibilityType } =
+    const { id, message, selectedChatModel, selectedVisibilityType } =
       requestBody;
 
     const session = await auth();
@@ -101,8 +94,6 @@ export async function POST(request: Request) {
       return new ChatbotError("rate_limit:chat").toResponse();
     }
 
-    const isToolApprovalFlow = Boolean(messages);
-
     const chat = await getChatById({ id, userId: session.user.id });
     let messagesFromDb: DBMessage[] = [];
     if (chat) {
@@ -113,7 +104,7 @@ export async function POST(request: Request) {
         id,
         userId: session.user.id,
       });
-    } else if (message?.role === "user") {
+    } else if (message.role === "user") {
       await saveChat({
         id,
         title: "New chat",
@@ -137,45 +128,12 @@ export async function POST(request: Request) {
       });
     }
 
-    let uiMessages: ChatMessage[];
+    const uiMessages: ChatMessage[] = [
+      ...convertToUIMessages(messagesFromDb),
+      message as ChatMessage,
+    ];
 
-    if (isToolApprovalFlow && messages) {
-      const dbMessages = convertToUIMessages(messagesFromDb);
-      const approvalStates = new Map(
-        messages.flatMap(
-          (m) =>
-            m.parts
-              ?.filter(
-                (p: Record<string, unknown>) =>
-                  p.state === "approval-responded" ||
-                  p.state === "output-denied"
-              )
-              .map((p: Record<string, unknown>) => [
-                String(p.toolCallId ?? ""),
-                p,
-              ]) ?? []
-        )
-      );
-      uiMessages = dbMessages.map((msg) => ({
-        ...msg,
-        parts: msg.parts.map((part) => {
-          if (
-            "toolCallId" in part &&
-            approvalStates.has(String(part.toolCallId))
-          ) {
-            return { ...part, ...approvalStates.get(String(part.toolCallId)) };
-          }
-          return part;
-        }),
-      })) as ChatMessage[];
-    } else {
-      uiMessages = [
-        ...convertToUIMessages(messagesFromDb),
-        message as ChatMessage,
-      ];
-    }
-
-    if (message?.role === "user") {
+    if (message.role === "user") {
       await saveMessages({
         messages: [
           {
@@ -195,7 +153,6 @@ export async function POST(request: Request) {
     const modelCapabilities = await getCapabilities();
     const capabilities = modelCapabilities[chatModel];
     const isReasoningModel = capabilities?.reasoning === true;
-    const supportsTools = capabilities?.tools === true;
 
     const modelMessages = await convertToModelMessages(uiMessages);
 
@@ -265,17 +222,7 @@ export async function POST(request: Request) {
 
         const result = streamText({
           abortSignal: request.signal,
-          activeTools:
-            isReasoningModel && !supportsTools
-              ? []
-              : [
-                  "getWeather",
-                  "createDocument",
-                  "editDocument",
-                  "updateDocument",
-                  "requestSuggestions",
-                ],
-          instructions: systemPrompt({ supportsTools }),
+          instructions: systemPrompt,
           maxRetries: 1,
           messages: modelMessages,
           model: getLanguageModel(chatModel),
@@ -294,31 +241,11 @@ export async function POST(request: Request) {
             logAIProviderError(error, chatModel);
             stopWaitingStatus();
           },
-          stopWhen: isStepCount(5),
           telemetry: {
             functionId: "stream-text",
             isEnabled: isProductionEnvironment,
           },
           timeout: 50_000,
-          tools: {
-            createDocument: createDocument({
-              dataStream,
-              modelId: chatModel,
-              session,
-            }),
-            editDocument: editDocument({ dataStream, session }),
-            getWeather,
-            requestSuggestions: requestSuggestions({
-              dataStream,
-              modelId: chatModel,
-              session,
-            }),
-            updateDocument: updateDocument({
-              dataStream,
-              modelId: chatModel,
-              session,
-            }),
-          },
         });
 
         dataStream.merge(
@@ -333,38 +260,7 @@ export async function POST(request: Request) {
       },
       generateId: generateUUID,
       onEnd: async ({ messages: finishedMessages }) => {
-        if (isToolApprovalFlow) {
-          await Promise.all(
-            finishedMessages.map(async (finishedMsg) => {
-              const existingMsg = uiMessages.find(
-                (m) => m.id === finishedMsg.id
-              );
-              if (existingMsg) {
-                await updateMessage({
-                  chatId: id,
-                  id: finishedMsg.id,
-                  parts: finishedMsg.parts,
-                  userId: session.user.id,
-                });
-                return;
-              }
-
-              await saveMessages({
-                messages: [
-                  {
-                    attachments: [],
-                    chatId: id,
-                    createdAt: new Date(),
-                    id: finishedMsg.id,
-                    parts: finishedMsg.parts,
-                    role: finishedMsg.role,
-                    userId: session.user.id,
-                  },
-                ],
-              });
-            })
-          );
-        } else if (finishedMessages.length > 0) {
+        if (finishedMessages.length > 0) {
           await saveMessages({
             messages: finishedMessages.map((currentMessage) => ({
               attachments: [],
@@ -379,7 +275,6 @@ export async function POST(request: Request) {
         }
       },
       onError: (error) => logAIProviderError(error, chatModel).message,
-      originalMessages: isToolApprovalFlow ? uiMessages : undefined,
     });
 
     return createUIMessageStreamResponse({ stream });

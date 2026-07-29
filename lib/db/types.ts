@@ -1,7 +1,6 @@
 export type Timestamp = string | Date;
 export type Visibility = "private" | "public";
 export type MessageRole = "user" | "assistant" | "system" | "tool";
-export type ArtifactKind = "text" | "code" | "image" | "sheet";
 
 export type User = {
   id: string;
@@ -38,27 +37,4 @@ export type Vote = {
   chatId: string;
   messageId: string;
   isUpvoted: boolean;
-};
-
-export type Document = {
-  id: string;
-  versionId?: string;
-  userId: string;
-  title: string;
-  kind: ArtifactKind;
-  content: string | null;
-  createdAt: Timestamp;
-};
-
-export type Suggestion = {
-  id: string;
-  documentId: string;
-  versionId?: string;
-  userId: string;
-  originalText: string;
-  suggestedText: string;
-  description: string | null;
-  isResolved: boolean;
-  createdAt: Timestamp;
-  documentCreatedAt?: Date;
 };

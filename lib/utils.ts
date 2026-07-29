@@ -1,13 +1,10 @@
-import type {
-  UIMessage,
-  UIMessagePart,
-} from 'ai';
+import type { UIMessage, UIMessagePart } from 'ai';
 import { type ClassValue, clsx } from 'clsx';
 import { formatISO } from 'date-fns';
 import { twMerge } from 'tailwind-merge';
-import type { DBMessage, Document } from '@/lib/db/types';
+import type { DBMessage } from '@/lib/db/types';
 import { ChatbotError, type ErrorCode } from './errors';
-import type { ChatMessage, ChatTools, CustomUIDataTypes } from './types';
+import type { ChatMessage, CustomUIDataTypes } from './types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -54,29 +51,35 @@ export function generateUUID(): string {
   });
 }
 
-export function getDocumentTimestampByIndex(
-  documents: Document[],
-  index: number,
-) {
-  if (!documents) { return new Date(); }
-  if (index > documents.length) { return new Date(); }
-
-  return new Date(documents[index].createdAt);
-}
-
 export function sanitizeText(text: string) {
   return text.replace('<has_function_call>', '');
 }
 
 export function convertToUIMessages(messages: DBMessage[]): ChatMessage[] {
-  return messages.map((message) => ({
-    id: message.id,
-    role: message.role as 'user' | 'assistant' | 'system',
-    parts: message.parts as UIMessagePart<CustomUIDataTypes, ChatTools>[],
-    metadata: {
-      createdAt: formatISO(new Date(message.createdAt)),
-    },
-  }));
+  return messages.flatMap((message) => {
+    if (message.role === 'tool') {
+      return [];
+    }
+
+    const parts = (message.parts as UIMessagePart<
+      CustomUIDataTypes,
+      Record<string, never>
+    >[]).filter(
+      (part) => !part.type.startsWith('tool-'),
+    );
+    if (parts.length === 0) {
+      return [];
+    }
+
+    return [{
+      id: message.id,
+      role: message.role as 'user' | 'assistant' | 'system',
+      parts,
+      metadata: {
+        createdAt: formatISO(new Date(message.createdAt)),
+      },
+    }];
+  });
 }
 
 export function getTextFromMessage(message: ChatMessage | UIMessage): string {

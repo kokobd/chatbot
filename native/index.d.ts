@@ -9,16 +9,6 @@ export declare class ExternalObject<T> {
 }
 export declare class Service {}
 
-export interface ArtifactDto {
-  content?: string;
-  createdAt: string;
-  headVersionId?: string;
-  id: string;
-  kind: string;
-  title: string;
-  userId: string;
-}
-
 export interface AuthenticatedIdentity {
   email: string;
   subject: string;
@@ -55,15 +45,6 @@ export declare function createChat(
   createdAt: string
 ): Promise<ChatDto>;
 
-export declare function createDocument(
-  service: ExternalObject<Service>,
-  id: string,
-  userId: string,
-  title: string,
-  kind: string,
-  content: string
-): Promise<DocumentDto>;
-
 export declare function createService(): Promise<ExternalObject<Service>>;
 
 export declare function deleteAllChats(
@@ -77,29 +58,12 @@ export declare function deleteChat(
   chatId: string
 ): Promise<ChatDto>;
 
-export declare function deleteDocumentsAfter(
-  service: ExternalObject<Service>,
-  userId: string,
-  documentId: string,
-  cutoff: string
-): Promise<DocumentDto[]>;
-
 export declare function deleteMessagesAfter(
   service: ExternalObject<Service>,
   userId: string,
   chatId: string,
   cutoff: string
 ): Promise<MessageDto[]>;
-
-export interface DocumentDto {
-  content?: string;
-  createdAt: string;
-  id: string;
-  kind: string;
-  title: string;
-  userId: string;
-  versionId: string;
-}
 
 export declare function getChat(
   service: ExternalObject<Service>,
@@ -114,18 +78,6 @@ export declare function getChatHistory(
   startingAfter?: string | undefined | null,
   endingBefore?: string | undefined | null
 ): Promise<ChatHistoryDto>;
-
-export declare function getDocument(
-  service: ExternalObject<Service>,
-  userId: string,
-  documentId: string
-): Promise<DocumentDto | null>;
-
-export declare function getDocuments(
-  service: ExternalObject<Service>,
-  userId: string,
-  documentId: string
-): Promise<DocumentDto[]>;
 
 export declare function getMessage(
   service: ExternalObject<Service>,
@@ -155,12 +107,6 @@ export declare function getOrCreateIapUser(
 export declare function getSecrets(
   service: ExternalObject<Service>
 ): SecretEntryDto[];
-
-export declare function getSuggestions(
-  service: ExternalObject<Service>,
-  userId: string,
-  documentId: string
-): Promise<SuggestionDto[]>;
 
 export declare function getVotes(
   service: ExternalObject<Service>,
@@ -199,38 +145,9 @@ export declare function saveMessages(
   inputs: MessageInput[]
 ): Promise<MessageDto[]>;
 
-export declare function saveSuggestions(
-  service: ExternalObject<Service>,
-  inputs: SuggestionInput[]
-): Promise<SuggestionDto[]>;
-
 export interface SecretEntryDto {
   key: string;
   value: string;
-}
-
-export interface SuggestionDto {
-  createdAt: string;
-  description?: string;
-  documentId: string;
-  id: string;
-  isResolved: boolean;
-  originalText: string;
-  suggestedText: string;
-  userId: string;
-  versionId: string;
-}
-
-export interface SuggestionInput {
-  createdAt: string;
-  description?: string;
-  documentId: string;
-  id: string;
-  isResolved: boolean;
-  originalText: string;
-  suggestedText: string;
-  userId: string;
-  versionId: string;
 }
 
 export declare function updateChatTitle(

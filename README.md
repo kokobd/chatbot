@@ -21,15 +21,15 @@
   - Advanced routing for seamless navigation and performance
   - React Server Components (RSCs) and Server Actions for server-side rendering and increased performance
 - [AI SDK](https://ai-sdk.dev/docs/introduction)
-  - Unified API for generating text, structured objects, and tool calls with LLMs
-  - Hooks for building dynamic chat and generative user interfaces
+  - Unified API for text and vision chat with LLMs
+  - Hooks for building streaming chat interfaces
   - Supports OpenAI, Anthropic, Google, DeepSeek, Moonshot, and Z.ai through OpenRouter
 - [shadcn/ui](https://ui.shadcn.com)
   - Styling with [Tailwind CSS](https://tailwindcss.com)
   - Component primitives from [Radix UI](https://radix-ui.com) for accessibility and flexibility
 - Data Persistence
-  - Google Cloud Firestore for chat history, users, messages, and artifacts
-  - Google Cloud Storage for uploaded files
+  - Google Cloud Firestore for chat history, users, and messages
+  - Google Cloud Storage for uploaded images
 - [GCP Identity-Aware Proxy](https://cloud.google.com/security/products/iap)
   - Authentication and access control at the Cloud Run boundary
 

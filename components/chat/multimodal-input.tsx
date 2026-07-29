@@ -3,13 +3,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
-import {
-  ArrowUpIcon,
-  BrainIcon,
-  EyeIcon,
-  LockIcon,
-  WrenchIcon,
-} from "lucide-react";
+import { ArrowUpIcon, BrainIcon, EyeIcon, LockIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
@@ -475,6 +469,7 @@ function PureMultimodalInput({
         )}
 
       <input
+        accept="image/jpeg,image/png"
         className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
         data-testid="file-input"
         multiple
@@ -556,12 +551,15 @@ function PureMultimodalInput({
             <PromptInputSubmit
               className={cn(
                 "h-7 w-7 rounded-xl transition-all duration-200",
-                input.trim()
+                input.trim() || attachments.length > 0
                   ? "bg-foreground text-background hover:opacity-85 active:scale-95"
                   : "bg-muted text-muted-foreground/25 cursor-not-allowed"
               )}
               data-testid="send-button"
-              disabled={!input.trim() || uploadQueue.length > 0}
+              disabled={
+                (!input.trim() && attachments.length === 0) ||
+                uploadQueue.length > 0
+              }
               status={status}
               variant="secondary"
             >
@@ -737,12 +735,6 @@ function ModelSelectorOption({
       <ModelSelectorLogo provider={model.provider} />
       <ModelSelectorName>{model.name}</ModelSelectorName>
       <div className="ml-auto flex items-center gap-2 text-foreground/70">
-        {capabilities?.[model.id]?.tools
-          ? maybeWithTooltip(
-              <WrenchIcon className="size-3.5" />,
-              "Supports tool use"
-            )
-          : null}
         {capabilities?.[model.id]?.vision
           ? maybeWithTooltip(
               <EyeIcon className="size-3.5" />,

@@ -4,7 +4,6 @@ const OPENROUTER_API_BASE_URL = "https://openrouter.ai/api/v1";
 const OPENROUTER_METADATA_TIMEOUT_MS = 10_000;
 
 export type ModelCapabilities = {
-  tools: boolean;
   vision: boolean;
   reasoning: boolean;
 };
@@ -28,49 +27,49 @@ export const titleModel = {
 
 export const chatModels: ChatModel[] = [
   {
-    capabilities: { reasoning: true, tools: true, vision: true },
+    capabilities: { reasoning: true, vision: true },
     description: "Multimodal reasoning model for complex work and coding",
     id: "moonshotai/kimi-k3",
     name: "Kimi K3",
     provider: "moonshotai",
   },
   {
-    capabilities: { reasoning: true, tools: true, vision: false },
+    capabilities: { reasoning: true, vision: false },
     description: "Large-scale reasoning model for coding and agent workflows",
     id: "deepseek/deepseek-v4-pro",
     name: "DeepSeek V4 Pro",
     provider: "deepseek",
   },
   {
-    capabilities: { reasoning: true, tools: true, vision: false },
+    capabilities: { reasoning: true, vision: false },
     description: "Fast text model for everyday chat",
     id: "deepseek/deepseek-v4-flash",
     name: "DeepSeek V4 Flash",
     provider: "deepseek",
   },
   {
-    capabilities: { reasoning: true, tools: true, vision: false },
+    capabilities: { reasoning: true, vision: false },
     description: "Large-scale reasoning model from Z.ai",
     id: "z-ai/glm-5.2",
     name: "GLM 5.2",
     provider: "zai",
   },
   {
-    capabilities: { reasoning: false, tools: true, vision: true },
+    capabilities: { reasoning: false, vision: true },
     description: "OpenAI's latest ChatGPT instant model",
     id: "openai/gpt-chat-latest",
     name: "ChatGPT Latest",
     provider: "openai",
   },
   {
-    capabilities: { reasoning: true, tools: true, vision: true },
+    capabilities: { reasoning: true, vision: true },
     description: "Anthropic's latest Sonnet model",
     id: "~anthropic/claude-sonnet-latest",
     name: "Claude Sonnet Latest",
     provider: "anthropic",
   },
   {
-    capabilities: { reasoning: true, tools: true, vision: true },
+    capabilities: { reasoning: true, vision: true },
     description: "Google's latest fast multimodal model",
     id: "~google/gemini-flash-latest",
     name: "Gemini Flash Latest",
@@ -169,7 +168,6 @@ function getModelCapabilities(
 
   return {
     reasoning: parameters.has("reasoning"),
-    tools: parameters.has("tools"),
     vision: inputModalities.has("image"),
   };
 }
@@ -220,7 +218,6 @@ export async function getAllOpenRouterModels(): Promise<
       .map((model) => ({
         capabilities: getModelCapabilities(model, {
           reasoning: false,
-          tools: false,
           vision: false,
         }),
         description: "",

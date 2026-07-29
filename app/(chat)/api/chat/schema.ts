@@ -20,16 +20,9 @@ const userMessageSchema = z.object({
   role: z.enum(["user"]),
 });
 
-const toolApprovalMessageSchema = z.object({
-  id: z.string(),
-  parts: z.array(z.record(z.string(), z.unknown())),
-  role: z.enum(["user", "assistant"]),
-});
-
 export const postRequestBodySchema = z.object({
   id: z.uuid(),
-  message: userMessageSchema.optional(),
-  messages: z.array(toolApprovalMessageSchema).optional(),
+  message: userMessageSchema,
   selectedChatModel: z.string(),
   selectedVisibilityType: z.enum(["public", "private"]),
 });

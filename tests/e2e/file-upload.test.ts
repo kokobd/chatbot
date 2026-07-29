@@ -64,4 +64,5 @@ test("uploads a PNG through the chat UI and serves the public object", async ({
   const attachmentPreview = page.getByTestId("input-attachment-preview");
   await expect(attachmentPreview).toBeVisible();
   await expect(page.getByAltText("acceptance.png")).toBeVisible();
+  await expect(page.getByTestId("send-button")).toBeEnabled();
 });

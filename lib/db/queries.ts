@@ -1,34 +1,27 @@
 import "server-only";
 
 import { auth } from "@/app/(auth)/auth";
-import type { ArtifactKind } from "@/components/chat/artifact";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
 import {
   createChat,
   deleteAllChats,
   deleteChat,
-  deleteDocumentsAfter,
   deleteMessagesAfter,
   getChat,
   getChatHistory,
-  getDocument,
-  getDocuments,
   getMessage,
   getMessageCount,
   getMessages,
-  getSuggestions,
   getVotes,
   getOrCreateIapUser as nativeGetOrCreateIapUser,
-  saveDocument as nativeSaveDocument,
   saveMessages as nativeSaveMessages,
-  saveSuggestions as nativeSaveSuggestions,
   updateMessage as nativeUpdateMessage,
   voteMessage as nativeVoteMessage,
   updateChatTitle,
   updateChatVisibility,
 } from "@/lib/native";
 import { ChatbotError, type ErrorCode, type Surface } from "../errors";
-import type { Chat, DBMessage, Document, Suggestion, User } from "./types";
+import type { Chat, DBMessage, User } from "./types";
 
 type NativeError = {
   category: string;
@@ -259,113 +252,6 @@ export async function updateChatTitleById({
   } catch {
     // Best effort title update.
   }
-}
-
-export async function saveDocument({
-  id,
-  title,
-  kind,
-  content,
-  userId,
-}: {
-  id: string;
-  title: string;
-  kind: ArtifactKind;
-  content: string;
-  userId: string;
-}): Promise<Document> {
-  return await database(
-    nativeSaveDocument({ content, id, kind, title, userId })
-  );
-}
-
-export async function updateDocumentContent({
-  id,
-  content,
-  userId,
-}: {
-  id: string;
-  content: string;
-  userId: string;
-}): Promise<Document[]> {
-  return await database(
-    getDocument(userId, id).then((existing) => {
-      if (!existing) {
-        throw new ChatbotError("not_found:document");
-      }
-      return nativeSaveDocument({
-        content,
-        id,
-        kind: existing.kind,
-        title: existing.title,
-        userId,
-      });
-    })
-  ).then((document) => [document]);
-}
-
-export async function getDocumentsById({
-  id,
-  userId,
-}: {
-  id: string;
-  userId?: string;
-}): Promise<Document[]> {
-  const session = userId ? undefined : await auth();
-  const owner = userId ?? session?.user?.id;
-  if (!owner) {
-    return [];
-  }
-  return database(getDocuments(owner, id));
-}
-
-export async function getDocumentById({
-  id,
-  userId,
-}: {
-  id: string;
-  userId?: string;
-}): Promise<Document | undefined> {
-  const session = userId ? undefined : await auth();
-  const owner = userId ?? session?.user?.id;
-  if (!owner) {
-    return;
-  }
-  return database(getDocument(owner, id)).then(
-    (document) => document ?? undefined
-  );
-}
-
-export async function deleteDocumentsByIdAfterTimestamp({
-  id,
-  timestamp,
-  userId,
-}: {
-  id: string;
-  timestamp: Date;
-  userId: string;
-}): Promise<Document[]> {
-  return await database(
-    deleteDocumentsAfter(userId, id, timestamp.toISOString())
-  );
-}
-
-export async function saveSuggestions({
-  suggestions,
-}: {
-  suggestions: Suggestion[];
-}): Promise<Suggestion[]> {
-  return await database(nativeSaveSuggestions(suggestions));
-}
-
-export async function getSuggestionsByDocumentId({
-  documentId,
-  userId,
-}: {
-  documentId: string;
-  userId: string;
-}): Promise<Suggestion[]> {
-  return await database(getSuggestions(userId, documentId));
 }
 
 // Keep these legacy query names as a compatibility adapter while callers move

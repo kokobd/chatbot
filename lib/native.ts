@@ -8,24 +8,18 @@ import {
   type MessageDto,
   authenticateIapRequest as nativeAuthenticateIapRequest,
   createChat as nativeCreateChat,
-  createDocument as nativeCreateDocument,
   deleteAllChats as nativeDeleteAllChats,
   deleteChat as nativeDeleteChat,
-  deleteDocumentsAfter as nativeDeleteDocumentsAfter,
   deleteMessagesAfter as nativeDeleteMessagesAfter,
   getChat as nativeGetChat,
   getChatHistory as nativeGetChatHistory,
-  getDocument as nativeGetDocument,
-  getDocuments as nativeGetDocuments,
   getMessage as nativeGetMessage,
   getMessageCount as nativeGetMessageCount,
   getMessages as nativeGetMessages,
   getOrCreateIapUser as nativeGetOrCreateIapUser,
   getSecrets as nativeGetSecrets,
-  getSuggestions as nativeGetSuggestions,
   getVotes as nativeGetVotes,
   saveMessages as nativeSaveMessages,
-  saveSuggestions as nativeSaveSuggestions,
   updateChatTitle as nativeUpdateChatTitle,
   updateChatVisibility as nativeUpdateChatVisibility,
   updateMessage as nativeUpdateMessage,
@@ -35,14 +29,7 @@ import {
   type Service,
   type UploadResult,
 } from "@chatbot/native";
-import type {
-  Chat,
-  DBMessage,
-  Document,
-  Suggestion,
-  Timestamp,
-  User,
-} from "./db/types";
+import type { Chat, DBMessage, Timestamp, User } from "./db/types";
 
 type NativeService = ExternalObject<Service>;
 let servicePromise: Promise<NativeService> | undefined;
@@ -269,101 +256,6 @@ export function deleteMessagesAfter(
       )
     )
     .then((messages) => messages.map(decodeMessage));
-}
-
-export function saveDocument(input: {
-  id: string;
-  userId: string;
-  title: string;
-  kind: Document["kind"];
-  content: string;
-}): Promise<Document> {
-  return getService().then(
-    (service) =>
-      nativeCreateDocument(
-        service,
-        input.id,
-        input.userId,
-        input.title,
-        input.kind,
-        input.content
-      ) as unknown as Promise<Document>
-  );
-}
-
-export function getDocuments(
-  userId: string,
-  documentId: string
-): Promise<Document[]> {
-  return getService().then(
-    (service) =>
-      nativeGetDocuments(service, userId, documentId) as unknown as Promise<
-        Document[]
-      >
-  );
-}
-
-export function getDocument(
-  userId: string,
-  documentId: string
-): Promise<Document | null> {
-  return getService().then(
-    (service) =>
-      nativeGetDocument(
-        service,
-        userId,
-        documentId
-      ) as unknown as Promise<Document | null>
-  );
-}
-
-export function deleteDocumentsAfter(
-  userId: string,
-  documentId: string,
-  cutoff: Timestamp
-): Promise<Document[]> {
-  return getService().then(
-    (service) =>
-      nativeDeleteDocumentsAfter(
-        service,
-        userId,
-        documentId,
-        cutoff instanceof Date ? cutoff.toISOString() : cutoff
-      ) as unknown as Promise<Document[]>
-  );
-}
-
-export function saveSuggestions(
-  suggestions: Suggestion[]
-): Promise<Suggestion[]> {
-  return getService()
-    .then((service) =>
-      nativeSaveSuggestions(
-        service,
-        suggestions.map((suggestion) => ({
-          ...suggestion,
-          createdAt:
-            suggestion.createdAt instanceof Date
-              ? suggestion.createdAt.toISOString()
-              : suggestion.createdAt,
-          description: suggestion.description ?? undefined,
-          versionId: suggestion.versionId ?? "",
-        }))
-      )
-    )
-    .then((saved) => saved as unknown as Suggestion[]);
-}
-
-export function getSuggestions(
-  userId: string,
-  documentId: string
-): Promise<Suggestion[]> {
-  return getService().then(
-    (service) =>
-      nativeGetSuggestions(service, userId, documentId) as unknown as Promise<
-        Suggestion[]
-      >
-  );
 }
 
 export function voteMessage(
