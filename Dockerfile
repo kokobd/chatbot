@@ -42,7 +42,7 @@ ENV HOSTNAME="0.0.0.0"
 WORKDIR /app
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends libssl3 \
+  && apt-get install -y --no-install-recommends ca-certificates libssl3 \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/.next/standalone ./
