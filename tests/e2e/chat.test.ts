@@ -58,4 +58,42 @@ test.describe("Chat Input Features", () => {
     await input.fill("Line 1\nLine 2\nLine 3");
     await expect(input).toContainText("Line 1");
   });
+
+  test("keeps short user messages on one line", async ({ page }) => {
+    await page.setViewportSize({ height: 800, width: 375 });
+    let submittedText: string | undefined;
+    await page.route("**/api/chat", async (route) => {
+      const body = route.request().postDataJSON() as {
+        message?: { parts?: Array<{ text?: string }> };
+      };
+      submittedText = body.message?.parts?.[0]?.text;
+      await route.fulfill({
+        body: "",
+        headers: { "content-type": "text/event-stream; charset=utf-8" },
+        status: 200,
+      });
+    });
+
+    await page.goto("/");
+    const input = page.getByTestId("multimodal-input");
+    await input.fill("hi");
+    await page.getByTestId("send-button").click();
+    await expect.poll(() => submittedText).toBe("hi");
+
+    const userContent = page.locator(
+      "[data-role='user'] [data-testid='message-content']"
+    );
+    await expect(userContent).toHaveText("hi");
+
+    const paragraph = userContent.locator("p");
+    await expect(paragraph).toHaveCount(1);
+    const { height, lineHeight } = await paragraph.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        height: element.getBoundingClientRect().height,
+        lineHeight: Number.parseFloat(style.lineHeight),
+      };
+    });
+    expect(height).toBeLessThan(lineHeight * 1.5);
+  });
 });
