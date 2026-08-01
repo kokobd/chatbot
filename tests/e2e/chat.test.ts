@@ -1,4 +1,10 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+
+type ChatStreamTestWindow = Window & {
+  __chatStreamReady: () => Promise<void>;
+  __pushChatStream: (chunk: string) => void;
+  __releaseChatStream: () => void;
+};
 
 test.describe("Chat Page", () => {
   test("adds a new chat to history without a page refresh", async ({
@@ -288,7 +294,153 @@ test.describe("Chat Input Features", () => {
 
     expect(responseTop).toBeGreaterThanOrEqual(reasoningBottom);
   });
+
+  test("keeps reasoning disclosure under user control while streaming", async ({
+    page,
+  }) => {
+    await installChatStreamMock(page);
+    await page.goto("/");
+    await page.getByTestId("multimodal-input").fill("Hello");
+    await page.getByTestId("send-button").click();
+    await waitForChatStream(page);
+
+    await pushChatStreamData(
+      page,
+      formatStream([
+        { messageId: "assistant-message", type: "start" },
+        { id: "reasoning-1", type: "reasoning-start" },
+        {
+          delta: "Analyzing the request",
+          id: "reasoning-1",
+          type: "reasoning-delta",
+        },
+      ])
+    );
+
+    const reasoning = page.getByTestId("message-reasoning");
+    const trigger = reasoning.getByRole("button");
+    const reasoningText = reasoning.getByText("Analyzing the request", {
+      exact: true,
+    });
+
+    await expect(reasoning).toBeVisible();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(reasoning).toHaveAttribute("data-state", "closed");
+    await expect(reasoningText).toHaveCount(0);
+
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await expect(reasoningText).toBeVisible();
+
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await page.waitForTimeout(1200);
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    await pushChatStreamData(
+      page,
+      `${formatStream([
+        { id: "reasoning-1", type: "reasoning-end" },
+        { id: "text-1", type: "text-start" },
+        { delta: "Hello!", id: "text-1", type: "text-delta" },
+        { id: "text-1", type: "text-end" },
+        { finishReason: "stop", type: "finish" },
+      ])}data: [DONE]\n\n`
+    );
+    await releaseChatStream(page);
+
+    await expect(page.getByTestId("send-button")).toHaveAttribute(
+      "aria-label",
+      "Submit"
+    );
+    await expect(
+      page.locator("[data-role='assistant'] [data-testid='message-content']")
+    ).toHaveText("Hello!");
+
+    await page.waitForTimeout(1200);
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  });
 });
+
+async function installChatStreamMock(page: Page) {
+  await page.addInitScript(() => {
+    const originalFetch = window.fetch.bind(window);
+    const encoder = new TextEncoder();
+    let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
+    let readyResolve: (() => void) | undefined;
+    const ready = new Promise<void>((resolve) => {
+      readyResolve = resolve;
+    });
+
+    Object.assign(window, {
+      __chatStreamReady: () => ready,
+      __pushChatStream: (chunk: string) => {
+        controller?.enqueue(encoder.encode(chunk));
+      },
+      __releaseChatStream: () => {
+        controller?.close();
+        controller = undefined;
+      },
+    });
+
+    window.fetch = (input, init) => {
+      const request = new Request(input, init);
+      const url = new URL(request.url, window.location.href);
+
+      if (request.method !== "POST" || url.pathname !== "/api/chat") {
+        return originalFetch(input, init);
+      }
+
+      return Promise.resolve(
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(streamController) {
+              controller = streamController;
+              readyResolve?.();
+            },
+          }),
+          {
+            headers: {
+              "content-type": "text/event-stream",
+              "x-vercel-ai-ui-message-stream": "v1",
+            },
+            status: 200,
+          }
+        )
+      );
+    };
+  });
+}
+
+async function waitForChatStream(page: Page) {
+  await page.evaluate(() =>
+    (window as unknown as ChatStreamTestWindow).__chatStreamReady()
+  );
+}
+
+async function pushChatStreamData(page: Page, data: string) {
+  await page.evaluate((value) => {
+    (window as unknown as ChatStreamTestWindow).__pushChatStream(value);
+  }, data);
+}
+
+function formatStream(chunks: Record<string, unknown>[]) {
+  return chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("");
+}
+
+async function releaseChatStream(page: Page) {
+  await page.evaluate(() => {
+    (window as unknown as ChatStreamTestWindow).__releaseChatStream();
+  });
+}
 
 function countTextLines(element: Element) {
   const range = document.createRange();
