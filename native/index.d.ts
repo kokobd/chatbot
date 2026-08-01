@@ -58,12 +58,12 @@ export declare function deleteChat(
   chatId: string
 ): Promise<ChatDto>;
 
-export declare function deleteMessagesAfter(
+export declare function deleteMessagesFrom(
   service: ExternalObject<Service>,
   userId: string,
   chatId: string,
-  cutoff: string
-): Promise<MessageDto[]>;
+  position: MessagePositionInput
+): Promise<number>;
 
 export declare function getChat(
   service: ExternalObject<Service>,
@@ -138,6 +138,11 @@ export interface MessageInput {
   parts: string;
   role: string;
   userId: string;
+}
+
+export interface MessagePositionInput {
+  createdAt: string;
+  id: string;
 }
 
 export declare function saveMessages(

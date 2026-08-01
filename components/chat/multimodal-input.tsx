@@ -39,14 +39,16 @@ import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   PromptInput,
+  PromptInputButton,
   PromptInputFooter,
+  PromptInputHeader,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
 } from "../ai-elements/prompt-input";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { PaperclipIcon, StopIcon } from "./icons";
+import { PaperclipIcon, PencilEditIcon, StopIcon } from "./icons";
 import { PreviewAttachment } from "./preview-attachment";
 import {
   type SlashCommand,
@@ -106,6 +108,24 @@ function PureMultimodalInput({
       return () => clearTimeout(timer);
     }
   }, [width]);
+
+  useEffect(() => {
+    if (!editingMessage) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const textarea = textareaRef.current;
+      if (!textarea) {
+        return;
+      }
+
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [editingMessage]);
 
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     "input",
@@ -352,12 +372,18 @@ function PureMultimodalInput({
     return () => textarea.removeEventListener("paste", handlePaste);
   }, [handlePaste]);
 
+  const handleCancelEdit = useCallback(() => {
+    setInput("");
+    setLocalStorageInput("");
+    onCancelEdit?.();
+  }, [onCancelEdit, setInput, setLocalStorageInput]);
+
   const handleCancelEditMouseDown = useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
       e.preventDefault();
-      onCancelEdit?.();
+      handleCancelEdit();
     },
-    [onCancelEdit]
+    [handleCancelEdit]
   );
 
   const handleSlashClose = useCallback(() => {
@@ -414,11 +440,12 @@ function PureMultimodalInput({
       }
       if (e.key === "Escape" && editingMessage && onCancelEdit) {
         e.preventDefault();
-        onCancelEdit();
+        handleCancelEdit();
       }
     },
     [
       editingMessage,
+      handleCancelEdit,
       handleSlashSelect,
       onCancelEdit,
       slashIndex,
@@ -429,19 +456,6 @@ function PureMultimodalInput({
 
   return (
     <div className={cn("relative flex w-full flex-col gap-4", className)}>
-      {editingMessage && onCancelEdit ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>Editing message</span>
-          <button
-            className="rounded px-1.5 py-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
-            onMouseDown={handleCancelEditMouseDown}
-            type="button"
-          >
-            Cancel
-          </button>
-        </div>
-      ) : null}
-
       <input
         accept="image/jpeg,image/png"
         className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
@@ -468,6 +482,29 @@ function PureMultimodalInput({
         className="[&>div]:rounded-2xl [&>div]:border [&>div]:border-border/30 [&>div]:bg-card/70 [&>div]:shadow-[var(--shadow-composer)] [&>div]:transition-shadow [&>div]:duration-300 [&>div]:focus-within:shadow-[var(--shadow-composer-focus)]"
         onSubmit={handlePromptSubmit}
       >
+        {editingMessage && onCancelEdit ? (
+          <PromptInputHeader
+            aria-live="polite"
+            className="justify-between border-b border-border/30 px-3 py-2"
+            data-testid="editing-message-state"
+          >
+            <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <span aria-hidden="true">
+                <PencilEditIcon size={14} />
+              </span>
+              <span>Editing message</span>
+            </div>
+            <PromptInputButton
+              className="text-muted-foreground hover:bg-muted hover:text-foreground"
+              data-testid="cancel-edit-button"
+              onMouseDown={handleCancelEditMouseDown}
+              size="sm"
+            >
+              Cancel
+            </PromptInputButton>
+          </PromptInputHeader>
+        ) : null}
+
         {(attachments.length > 0 || uploadQueue.length > 0) && (
           <div
             className="flex w-full self-start flex-row gap-2 overflow-x-auto px-3 pt-3 no-scrollbar"

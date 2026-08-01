@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use crate::domain::{JsonValue, Message};
+use crate::domain::{JsonValue, Message, PaginationPosition};
 
 use super::error::PersistenceError;
 
@@ -66,15 +66,10 @@ pub trait MessageRepository: Send + Sync {
         cutoff: DateTime<Utc>,
     ) -> Result<u64, PersistenceError>;
 
-    async fn delete_messages_after(
+    async fn delete_messages_from(
         &self,
-        _user_id: &str,
-        _chat_id: &str,
-        _timestamp: DateTime<Utc>,
-    ) -> Result<Vec<Message>, PersistenceError> {
-        Err(PersistenceError::Internal {
-            message: "message deletion is not configured".to_string(),
-            retryable: false,
-        })
-    }
+        user_id: &str,
+        chat_id: &str,
+        position: &PaginationPosition,
+    ) -> Result<u64, PersistenceError>;
 }

@@ -8,7 +8,7 @@ import { titlePrompt } from "@/lib/ai/prompts";
 import { getTitleModel } from "@/lib/ai/providers";
 import { createFallbackTitle, normalizeGeneratedTitle } from "@/lib/ai/title";
 import {
-  deleteMessagesByChatIdAfterTimestamp,
+  deleteMessagesByChatIdFromPosition,
   getChatById,
   getMessageById,
   updateChatVisibilityById,
@@ -75,9 +75,10 @@ export async function deleteTrailingMessages({
     throw new Error("Unauthorized");
   }
 
-  await deleteMessagesByChatIdAfterTimestamp({
+  await deleteMessagesByChatIdFromPosition({
     chatId: message.chatId,
-    timestamp: new Date(message.createdAt),
+    messageId: message.id,
+    timestamp: message.createdAt,
     userId: session.user.id,
   });
 }

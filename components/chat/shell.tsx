@@ -67,13 +67,14 @@ export function ChatShell() {
     }
     setEditingMessage(null);
     await submitEditedMessage({
+      chatId,
       message: editingMessage,
       regenerate,
       setMessages,
       text: input,
     });
     setInput("");
-  }, [editingMessage, input, regenerate, setInput, setMessages]);
+  }, [chatId, editingMessage, input, regenerate, setInput, setMessages]);
 
   return (
     <div className="flex h-dvh w-full min-w-0 flex-col bg-sidebar">

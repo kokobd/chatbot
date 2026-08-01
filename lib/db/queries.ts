@@ -6,7 +6,7 @@ import {
   createChat,
   deleteAllChats,
   deleteChat,
-  deleteMessagesAfter,
+  deleteMessagesFrom,
   getChat,
   getChatHistory,
   getMessage,
@@ -21,7 +21,7 @@ import {
   updateChatVisibility,
 } from "@/lib/native";
 import { ChatbotError, type ErrorCode, type Surface } from "../errors";
-import type { Chat, DBMessage, User } from "./types";
+import type { Chat, DBMessage, Timestamp, User } from "./types";
 
 type NativeError = {
   category: string;
@@ -197,17 +197,22 @@ export async function getMessageById({
   return message ? [message] : [];
 }
 
-export async function deleteMessagesByChatIdAfterTimestamp({
+export async function deleteMessagesByChatIdFromPosition({
   chatId,
+  messageId,
   timestamp,
   userId,
 }: {
   chatId: string;
-  timestamp: Date;
+  messageId: string;
+  timestamp: Timestamp;
   userId: string;
-}): Promise<DBMessage[]> {
+}): Promise<number> {
   return await database(
-    deleteMessagesAfter(userId, chatId, timestamp.toISOString())
+    deleteMessagesFrom(userId, chatId, {
+      createdAt: timestamp,
+      id: messageId,
+    })
   );
 }
 

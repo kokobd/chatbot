@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use thiserror::Error;
 
 use crate::application::repository::{MessageQuery, MessageRepository, PersistenceError};
-use crate::domain::{Message, ValidationError};
+use crate::domain::{Message, PaginationPosition, ValidationError};
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum MessageServiceError {
@@ -112,6 +112,29 @@ mod tests {
                 })
                 .count() as u64)
         }
+
+        async fn delete_messages_from(
+            &self,
+            user_id: &str,
+            chat_id: &str,
+            position: &PaginationPosition,
+        ) -> Result<u64, PersistenceError> {
+            let mut stored = self.messages.lock().unwrap();
+            let ids: Vec<_> = stored
+                .values()
+                .filter(|message| {
+                    message.user_id == user_id
+                        && message.chat_id == chat_id
+                        && message.position() >= position.clone()
+                })
+                .map(|message| message.id.clone())
+                .collect();
+            let count = ids.len() as u64;
+            for id in ids {
+                stored.remove(&id);
+            }
+            Ok(count)
+        }
     }
 
     fn message(id: &str, seconds: i64) -> Message {
@@ -168,6 +191,18 @@ mod tests {
                 .unwrap(),
             2
         );
+        assert_eq!(
+            service
+                .delete_messages_from("user-1", "chat-1", &first.position())
+                .await
+                .unwrap(),
+            2
+        );
+        assert!(service
+            .get_messages_by_chat_id("user-1", "chat-1")
+            .await
+            .unwrap()
+            .is_empty());
     }
 
     #[tokio::test]
@@ -227,15 +262,15 @@ impl MessageService {
         Ok(self.repository.count_user_messages(user_id, cutoff).await?)
     }
 
-    pub async fn delete_messages_after(
+    pub async fn delete_messages_from(
         &self,
         user_id: &str,
         chat_id: &str,
-        timestamp: DateTime<Utc>,
-    ) -> Result<Vec<Message>, MessageServiceError> {
+        position: &PaginationPosition,
+    ) -> Result<u64, MessageServiceError> {
         Ok(self
             .repository
-            .delete_messages_after(user_id, chat_id, timestamp)
+            .delete_messages_from(user_id, chat_id, position)
             .await?)
     }
 }

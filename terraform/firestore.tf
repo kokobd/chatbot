@@ -72,6 +72,24 @@ resource "google_firestore_index" "messages_usage" {
   }
 }
 
+resource "google_firestore_index" "messages_position" {
+  project     = var.project_id
+  database    = google_firestore_database.chatbot.name
+  collection  = "messages"
+  query_scope = "COLLECTION"
+  skip_wait   = false
+
+  fields {
+    field_path = "createdAt"
+    order      = "ASCENDING"
+  }
+
+  fields {
+    field_path = "id"
+    order      = "ASCENDING"
+  }
+}
+
 resource "google_firestore_index" "artifact_versions_history" {
   project     = var.project_id
   database    = google_firestore_database.chatbot.name

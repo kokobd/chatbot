@@ -3,15 +3,15 @@ use chrono::{DateTime, Utc};
 use firestore::errors::FirestoreError;
 use firestore::timestamp_utils::from_timestamp;
 use firestore::{
-    FirestoreConsistencySelector, FirestoreDb, FirestoreGetByIdSupport, FirestoreQueryDirection,
-    FirestoreTransactionOps, FirestoreWritePrecondition,
+    FirestoreConsistencySelector, FirestoreDb, FirestoreGetByIdSupport, FirestoreQueryCursor,
+    FirestoreQueryDirection, FirestoreTransactionOps, FirestoreWritePrecondition,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::application::repository::{MessageQuery, MessageRepository, PersistenceError};
-use crate::domain::{LifecycleState, Message, MessageRole};
+use crate::domain::{LifecycleState, Message, MessageRole, PaginationPosition};
 
 use super::firestore_chat_repository::{ChatDocument, CHATS_COLLECTION};
 
@@ -125,11 +125,21 @@ impl FirestoreMessageRepository {
         message_id: &str,
         operation: MessageOperation,
     ) -> Result<Option<(MessageDocument, Option<DateTime<Utc>>)>, PersistenceError> {
+        self.raw_message_from(&self.db, chat_id, message_id, operation)
+            .await
+    }
+
+    async fn raw_message_from(
+        &self,
+        db: &FirestoreDb,
+        chat_id: &str,
+        message_id: &str,
+        operation: MessageOperation,
+    ) -> Result<Option<(MessageDocument, Option<DateTime<Utc>>)>, PersistenceError> {
         validate_document_id(chat_id, "chat")?;
         validate_document_id(message_id, "message")?;
         let parent = self.message_parent(chat_id)?;
-        let document = match self
-            .db
+        let document = match db
             .get_doc_at(parent.as_str(), MESSAGES_COLLECTION, message_id, None)
             .await
         {
@@ -463,6 +473,191 @@ impl FirestoreMessageRepository {
             Err(error) => Err(original.with_reconciliation_failure(error)),
         }
     }
+
+    async fn delete_messages_from_inner(
+        &self,
+        user_id: &str,
+        chat_id: &str,
+        position: &PaginationPosition,
+    ) -> Result<u64, PersistenceError> {
+        validate_identifier(user_id)?;
+        validate_document_id(chat_id, "chat")?;
+        validate_document_id(&position.id, "message")?;
+
+        let mut transaction = self
+            .db
+            .begin_transaction()
+            .await
+            .map_err(|error| map_firestore_error(error, MessageOperation::Setup))?;
+        let transaction_db =
+            self.db
+                .clone_with_consistency_selector(FirestoreConsistencySelector::Transaction(
+                    transaction.transaction_id().clone(),
+                ));
+
+        if let Err(error) = self
+            .active_chat_in(&transaction_db, user_id, chat_id, MessageOperation::Read)
+            .await
+        {
+            transaction.rollback().await.ok();
+            return Err(error);
+        }
+
+        let anchor = match self
+            .raw_message_from(
+                &transaction_db,
+                chat_id,
+                &position.id,
+                MessageOperation::Read,
+            )
+            .await
+        {
+            Ok(Some((document, _))) => match document.into_message(&position.id) {
+                Ok(message) => message,
+                Err(error) => {
+                    transaction.rollback().await.ok();
+                    return Err(error);
+                }
+            },
+            Ok(None) => {
+                transaction.rollback().await.ok();
+                return Err(PersistenceError::NotFound);
+            }
+            Err(error) => {
+                transaction.rollback().await.ok();
+                return Err(error);
+            }
+        };
+        if anchor.chat_id != chat_id {
+            transaction.rollback().await.ok();
+            return Err(PersistenceError::CorruptData(
+                "message ownership binding does not match its chat".to_string(),
+            ));
+        }
+        if anchor.user_id != user_id {
+            transaction.rollback().await.ok();
+            return Err(PersistenceError::NotFound);
+        }
+        if anchor.created_at != position.created_at {
+            transaction.rollback().await.ok();
+            return Err(PersistenceError::FailedPrecondition(
+                "message position is stale".to_string(),
+            ));
+        }
+
+        let parent = self.message_parent(chat_id)?;
+        let documents = transaction_db
+            .fluent()
+            .select()
+            .from(MESSAGES_COLLECTION)
+            .parent(parent.as_str())
+            .order_by([
+                ("createdAt", FirestoreQueryDirection::Ascending),
+                ("id", FirestoreQueryDirection::Ascending),
+            ])
+            .start_at(FirestoreQueryCursor::BeforeValue(vec![
+                position.created_at.into(),
+                position.id.clone().into(),
+            ]))
+            .limit((MAX_TRANSACTION_WRITES + 1) as u32)
+            .obj::<MessageDocument>()
+            .query()
+            .await
+            .map_err(|error| map_firestore_error(error, MessageOperation::Read));
+        let documents = match documents {
+            Ok(documents) => documents,
+            Err(error) => {
+                transaction.rollback().await.ok();
+                return Err(error);
+            }
+        };
+
+        if documents.len() > MAX_TRANSACTION_WRITES {
+            transaction.rollback().await.ok();
+            return Err(PersistenceError::FailedPrecondition(
+                "message branch exceeds transaction write limit".to_string(),
+            ));
+        }
+
+        let mut candidates = Vec::with_capacity(documents.len());
+        for document in documents {
+            let document_id = document.id.clone();
+            let message = match document.into_message(&document_id) {
+                Ok(message) => message,
+                Err(error) => {
+                    transaction.rollback().await.ok();
+                    return Err(error);
+                }
+            };
+            if message.chat_id != chat_id || message.user_id != user_id {
+                transaction.rollback().await.ok();
+                return Err(PersistenceError::CorruptData(
+                    "message ownership binding does not match its chat".to_string(),
+                ));
+            }
+            candidates.push(message);
+        }
+
+        if candidates.is_empty() {
+            transaction.rollback().await.ok();
+            return Ok(0);
+        }
+
+        for message in &candidates {
+            if let Err(error) = transaction
+                .delete_by_id_at(parent.as_str(), MESSAGES_COLLECTION, &message.id, None)
+                .map_err(|error| map_firestore_error(error, MessageOperation::Setup))
+            {
+                transaction.rollback().await.ok();
+                return Err(error);
+            }
+        }
+
+        let expected_count = candidates.len() as u64;
+        let response = transaction.commit().await.map_err(|error| {
+            let mapped = map_firestore_error(error, MessageOperation::Commit);
+            if is_ambiguous_write(&mapped) {
+                BatchFailure::Unknown(mapped)
+            } else {
+                BatchFailure::Known(mapped)
+            }
+        });
+        match response {
+            Ok(response) if response.write_results.len() == candidates.len() => Ok(expected_count),
+            Ok(_) => {
+                self.reconcile_deleted_messages(
+                    &candidates,
+                    unknown_outcome(
+                        "message deletion committed with an incomplete response",
+                        false,
+                    ),
+                )
+                .await
+            }
+            Err(BatchFailure::Known(error)) => Err(error),
+            Err(BatchFailure::Unknown(error)) => {
+                self.reconcile_deleted_messages(&candidates, error).await
+            }
+        }
+    }
+
+    async fn reconcile_deleted_messages(
+        &self,
+        candidates: &[Message],
+        original: PersistenceError,
+    ) -> Result<u64, PersistenceError> {
+        for message in candidates {
+            match self
+                .raw_message(&message.chat_id, &message.id, MessageOperation::Reconcile)
+                .await
+            {
+                Ok(None) => {}
+                Ok(Some(_)) => return Err(original),
+                Err(error) => return Err(original.with_reconciliation_failure(error)),
+            }
+        }
+        Ok(candidates.len() as u64)
+    }
 }
 
 #[derive(Debug)]
@@ -607,6 +802,24 @@ impl MessageRepository for FirestoreMessageRepository {
         );
         result
     }
+
+    async fn delete_messages_from(
+        &self,
+        user_id: &str,
+        chat_id: &str,
+        position: &PaginationPosition,
+    ) -> Result<u64, PersistenceError> {
+        for attempt in 0..3 {
+            match self
+                .delete_messages_from_inner(user_id, chat_id, position)
+                .await
+            {
+                Err(error) if attempt < 2 && is_retryable_delete_error(&error) => continue,
+                result => return result,
+            }
+        }
+        unreachable!("delete retry loop always returns")
+    }
 }
 
 fn role_wire(role: MessageRole) -> String {
@@ -731,6 +944,18 @@ fn is_retryable_setup_or_contention(error: &PersistenceError) -> bool {
         error,
         PersistenceError::Unavailable { .. } | PersistenceError::FailedPrecondition(_)
     )
+}
+
+fn is_retryable_delete_error(error: &PersistenceError) -> bool {
+    match error {
+        PersistenceError::Unavailable {
+            retryable: true, ..
+        } => true,
+        PersistenceError::FailedPrecondition(message) => {
+            message == "Firestore write precondition failed"
+        }
+        _ => false,
+    }
 }
 
 #[cfg(test)]

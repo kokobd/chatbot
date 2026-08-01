@@ -7,9 +7,8 @@ mod service;
 pub use application::chat_service::{ChatService, ChatServiceError};
 pub use application::message_service::{MessageService, MessageServiceError};
 pub use application::repository::{
-    ChatHistoryCursor, ChatHistoryPage, ChatHistoryQuery, ChatRepository,
-    ChatTitle, Email, IapUser, MessageParts, MessageQuery, MessageRepository, PersistenceError,
-    UserRepository,
+    ChatHistoryCursor, ChatHistoryPage, ChatHistoryQuery, ChatRepository, ChatTitle, Email,
+    IapUser, MessageParts, MessageQuery, MessageRepository, PersistenceError, UserRepository,
 };
 pub use application::user_service::{UserService, UserServiceError};
 pub use infrastructure::firestore_chat_repository::FirestoreChatRepository;
@@ -130,6 +129,12 @@ pub struct MessageInput {
     pub created_at: String,
 }
 
+#[napi(object)]
+pub struct MessagePositionInput {
+    pub id: String,
+    #[napi(js_name = "createdAt")]
+    pub created_at: String,
+}
 
 #[napi(object)]
 pub struct ChatHistoryDto {
@@ -711,24 +716,27 @@ pub async fn get_message_count(
         .map_err(to_napi_error)
 }
 
-#[napi(js_name = "deleteMessagesAfter")]
-pub async fn delete_messages_after(
+#[napi(js_name = "deleteMessagesFrom")]
+pub async fn delete_messages_from(
     service: &External<Service>,
     user_id: String,
     chat_id: String,
-    cutoff: String,
-) -> Result<Vec<MessageDto>> {
+    position: MessagePositionInput,
+) -> Result<i64> {
+    let position = domain::PaginationPosition::try_new(
+        parse_timestamp(&position.created_at).map_err(to_napi_error)?,
+        position.id,
+    )
+    .map_err(|error| to_napi_error(boundary_error(error.to_string())))?;
     service
         .messages
-        .delete_messages_after(
-            &user_id,
-            &chat_id,
-            parse_timestamp(&cutoff).map_err(to_napi_error)?,
-        )
+        .delete_messages_from(&user_id, &chat_id, &position)
         .await
         .map_err(to_napi_error)?
-        .into_iter()
-        .map(message_dto)
-        .collect::<StdResult<Vec<_>, _>>()
-        .map_err(to_napi_error)
+        .try_into()
+        .map_err(|_| {
+            to_napi_error(boundary_error(
+                "deleted message count exceeds JS safe range",
+            ))
+        })
 }

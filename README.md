@@ -141,6 +141,41 @@ For native or end-to-end verification, see
 [`native/README.md`](./native/README.md). Those capability tests also require
 the real Terraform-backed resources and ADC; they do not use an emulator.
 
+### Browser UI verification
+
+This workspace provides a Playwright MCP browser for direct local UI testing.
+Agents should use it proactively when changing UI behavior or layout:
+
+1. Start the local server with `pnpm dev`, or use a polling watcher if the
+   development watcher hits the macOS file-descriptor limit:
+
+   ```bash
+   WATCHPACK_POLLING=true pnpm exec next dev --webpack -H 0.0.0.0 -p 3100
+   ```
+
+2. Open the relevant route in the Playwright browser.
+3. Use an accessibility snapshot to select elements, exercise the interaction,
+   inspect console errors, and take a screenshot for layout changes.
+
+Use mocked API responses for deterministic UI checks. Keep real-model smoke
+tests short and remove any temporary chats when they are finished.
+
+### Message editing persistence
+
+Submitting an edited message deletes the selected message and all later
+messages in that chat atomically. The boundary is the full `(createdAt, id)`
+position, including the selected message, which avoids duplicate messages when
+the edited message is saved again. The operation supports at most 500 deletes;
+larger branches are rejected without partial writes and are not chunked.
+Firestore's separate 10 MiB transaction limit still applies and remains
+all-or-nothing.
+
+Firestore must have the collection-scoped `messages_position` index on
+`createdAt ASC` and `id ASC` in READY state before this path is deployed.
+RFC3339 timestamps remain strings across the TypeScript/native boundary to
+preserve sub-millisecond precision. The transaction protects its own snapshot;
+post-commit writes from another tab or stream are outside its scope.
+
 ## Production and deployed environments
 
 Production uses the `main` Terraform workspace. Feature or staging

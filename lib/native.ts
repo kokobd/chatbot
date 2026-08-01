@@ -10,7 +10,7 @@ import {
   createChat as nativeCreateChat,
   deleteAllChats as nativeDeleteAllChats,
   deleteChat as nativeDeleteChat,
-  deleteMessagesAfter as nativeDeleteMessagesAfter,
+  deleteMessagesFrom as nativeDeleteMessagesFrom,
   getChat as nativeGetChat,
   getChatHistory as nativeGetChatHistory,
   getMessage as nativeGetMessage,
@@ -241,21 +241,20 @@ export function getMessageCount(
   );
 }
 
-export function deleteMessagesAfter(
+export function deleteMessagesFrom(
   userId: string,
   chatId: string,
-  cutoff: Timestamp
-): Promise<DBMessage[]> {
-  return getService()
-    .then((service) =>
-      nativeDeleteMessagesAfter(
-        service,
-        userId,
-        chatId,
-        cutoff instanceof Date ? cutoff.toISOString() : cutoff
-      )
-    )
-    .then((messages) => messages.map(decodeMessage));
+  position: { id: string; createdAt: Timestamp }
+): Promise<number> {
+  return getService().then((service) =>
+    nativeDeleteMessagesFrom(service, userId, chatId, {
+      createdAt:
+        position.createdAt instanceof Date
+          ? position.createdAt.toISOString()
+          : position.createdAt,
+      id: position.id,
+    })
+  );
 }
 
 export function voteMessage(
