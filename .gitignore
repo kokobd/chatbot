@@ -28,3 +28,4 @@ tsconfig.tsbuildinfo
 /native/*.node
 /native/target/
 .idea/
+.playwright-mcp/
