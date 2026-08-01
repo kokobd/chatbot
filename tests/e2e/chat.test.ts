@@ -6,6 +6,7 @@ test.describe("Chat Page", () => {
   }) => {
     const chatId = "11111111-1111-4111-8111-111111111111";
     let chatCreated = false;
+    let placeholderHistoryRead = false;
 
     await page.route("**/api/history**", async (route) => {
       const url = new URL(route.request().url());
@@ -20,10 +21,13 @@ test.describe("Chat Page", () => {
         id: chatId,
         lifecycle: "active",
         lifecycleRevision: 0,
-        title: "Hi",
+        title: chatCreated && !placeholderHistoryRead ? "New chat" : "Hi",
         userId: "test-user",
         visibility: "private",
       };
+      if (chatCreated) {
+        placeholderHistoryRead = true;
+      }
 
       await route.fulfill({
         body: JSON.stringify({
@@ -38,9 +42,22 @@ test.describe("Chat Page", () => {
 
     await page.route("**/api/chat", async (route) => {
       chatCreated = true;
+      const stream = [
+        { messageId: "assistant-message", type: "start" },
+        { id: "text-1", type: "text-start" },
+        { delta: "Hello!", id: "text-1", type: "text-delta" },
+        { id: "text-1", type: "text-end" },
+        { finishReason: "stop", type: "finish" },
+      ]
+        .map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`)
+        .join("");
+
       await route.fulfill({
-        body: "",
-        headers: { "content-type": "text/event-stream; charset=utf-8" },
+        body: `${stream}data: [DONE]\n\n`,
+        headers: {
+          "content-type": "text/event-stream",
+          "x-vercel-ai-ui-message-stream": "v1",
+        },
         status: 200,
       });
     });
@@ -61,7 +78,10 @@ test.describe("Chat Page", () => {
       await sidebar.getByLabel("Toggle Sidebar").first().click({ force: true });
     }
 
-    await expect(page.getByText("Hi", { exact: true })).toBeVisible();
+    await expect.poll(() => placeholderHistoryRead).toBe(true);
+    await expect(
+      page.getByRole("link", { exact: true, name: "Hi" })
+    ).toBeVisible();
   });
 
   test("home page loads with input field", async ({ page }) => {
