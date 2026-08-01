@@ -95,7 +95,7 @@ export const PreviewMessage = ({
           <MessageResponse
             className={
               isUser
-                ? "w-fit max-w-full [&>p]:m-0 [&>p]:w-fit [&>p]:leading-[1.65]"
+                ? "w-fit max-w-full pr-4 [&>p]:m-0 [&>p]:w-fit [&>p]:leading-[1.65]"
                 : undefined
             }
           >
@@ -111,7 +111,12 @@ export const PreviewMessage = ({
     <WaitingText />
   ) : (
     <>
-      <div className={cn("flex flex-wrap gap-2", isUser && "justify-end")}>
+      <div
+        className={cn(
+          "flex gap-2",
+          isUser ? "flex-wrap justify-end" : "flex-col"
+        )}
+      >
         {parts}
       </div>
       {!isReadonly && (

@@ -88,24 +88,87 @@ test.describe("Chat Input Features", () => {
 
     await page.goto("/");
     const input = page.getByTestId("multimodal-input");
-    await input.fill("hi");
+    await input.fill("Hello!");
     await page.getByTestId("send-button").click();
-    await expect.poll(() => submittedText).toBe("hi");
+    await expect.poll(() => submittedText).toBe("Hello!");
 
     const userContent = page.locator(
       "[data-role='user'] [data-testid='message-content']"
     );
-    await expect(userContent).toHaveText("hi");
+    await expect(userContent).toHaveText("Hello!");
 
     const paragraph = userContent.locator("p");
     await expect(paragraph).toHaveCount(1);
-    const { height, lineHeight } = await paragraph.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return {
-        height: element.getBoundingClientRect().height,
-        lineHeight: Number.parseFloat(style.lineHeight),
-      };
-    });
+    const { height, lineHeight, rightPadding } = await paragraph.evaluate(
+      (element) => {
+        const style = getComputedStyle(element);
+        const content = element.closest("[data-testid='message-content']");
+        const textRange = document.createRange();
+        textRange.selectNodeContents(element);
+
+        return {
+          height: element.getBoundingClientRect().height,
+          lineHeight: Number.parseFloat(style.lineHeight),
+          rightPadding: content
+            ? content.getBoundingClientRect().right -
+              textRange.getBoundingClientRect().right
+            : 0,
+        };
+      }
+    );
     expect(height).toBeLessThan(lineHeight * 1.5);
+    expect(rightPadding).toBeGreaterThanOrEqual(12);
+  });
+
+  test("places assistant text below reasoning", async ({ page }) => {
+    const stream = [
+      { messageId: "assistant-message", type: "start" },
+      { id: "reasoning-1", type: "reasoning-start" },
+      { delta: "Thinking", id: "reasoning-1", type: "reasoning-delta" },
+      { id: "reasoning-1", type: "reasoning-end" },
+      { id: "text-1", type: "text-start" },
+      { delta: "Hello!", id: "text-1", type: "text-delta" },
+      { id: "text-1", type: "text-end" },
+      { finishReason: "stop", type: "finish" },
+    ]
+      .map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`)
+      .join("");
+
+    await page.route("**/api/chat", async (route) => {
+      await route.fulfill({
+        body: `${stream}data: [DONE]\n\n`,
+        headers: {
+          "content-type": "text/event-stream",
+          "x-vercel-ai-ui-message-stream": "v1",
+        },
+        status: 200,
+      });
+    });
+
+    await page.goto("/");
+    await page.getByTestId("multimodal-input").fill("Hello");
+    await page.getByTestId("send-button").click();
+
+    const reasoning = page.getByTestId("message-reasoning");
+    const assistantContent = page.locator(
+      "[data-role='assistant'] [data-testid='message-content']"
+    );
+    await expect(reasoning).toBeVisible();
+    await expect(assistantContent).toHaveText("Hello!");
+
+    const { reasoningBottom, responseTop } = await reasoning.evaluate(
+      (reasoningElement) => {
+        const response = reasoningElement
+          .closest("[data-role='assistant']")
+          ?.querySelector("[data-testid='message-content']");
+
+        return {
+          reasoningBottom: reasoningElement.getBoundingClientRect().bottom,
+          responseTop: response?.getBoundingClientRect().top ?? 0,
+        };
+      }
+    );
+
+    expect(responseTop).toBeGreaterThanOrEqual(reasoningBottom);
   });
 });

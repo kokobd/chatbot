@@ -16,7 +16,7 @@ export type ChatModel = {
   capabilities: ModelCapabilities;
 };
 
-export const DEFAULT_CHAT_MODEL = "moonshotai/kimi-k3";
+export const DEFAULT_CHAT_MODEL = "deepseek/deepseek-v4-pro";
 
 export const titleModel = {
   description: "Fast model for title generation",
