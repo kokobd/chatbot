@@ -9,6 +9,7 @@ import {
   type Dispatch,
   type ReactNode,
   type SetStateAction,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -18,10 +19,10 @@ import {
 import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
 import { useDataStream } from "@/components/chat/data-stream-provider";
-import { getChatHistoryPaginationKey } from "@/components/chat/sidebar-history";
 import { toast } from "@/components/chat/toast";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { getChatHistoryPaginationKey } from "@/lib/chat-history";
 import type { Vote } from "@/lib/db/types";
 import { ChatbotError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
@@ -56,6 +57,11 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { setWaitingStatus } = useDataStream();
   const { mutate } = useSWRConfig();
+  const refreshChatHistory = useCallback(() => {
+    mutate(unstable_serialize(getChatHistoryPaginationKey)).catch(() => {
+      // History refresh is best effort and must not interrupt chat streaming.
+    });
+  }, [mutate]);
 
   const chatIdFromUrl = extractChatId(pathname);
   const isNewChat = !chatIdFromUrl;
@@ -126,9 +132,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
           });
         }
       },
-      onFinish: () => {
-        mutate(unstable_serialize(getChatHistoryPaginationKey));
-      },
+      onFinish: refreshChatHistory,
       transport: useMemo(
         () =>
           new DefaultChatTransport({
@@ -155,6 +159,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
                       "",
                       `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${body.id}`
                     );
+                    refreshChatHistory();
                   }
                 } catch {
                   // The API will report malformed transport data.
@@ -176,7 +181,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
               };
             },
           }),
-        [visibility]
+        [refreshChatHistory, visibility]
       ),
     });
 

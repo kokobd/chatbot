@@ -24,6 +24,10 @@ import {
   SidebarMenu,
   useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  type ChatHistory,
+  getChatHistoryPaginationKey,
+} from "@/lib/chat-history";
 import type { Chat } from "@/lib/db/types";
 import { fetcher } from "@/lib/utils";
 import { LoaderIcon } from "./icons";
@@ -36,14 +40,6 @@ type GroupedChats = {
   lastMonth: Chat[];
   older: Chat[];
 };
-
-export type ChatHistory = {
-  chats: Chat[];
-  hasMore: boolean;
-  nextCursor?: string | null;
-};
-
-const PAGE_SIZE = 20;
 
 const groupChatsByDate = (chats: Chat[]): GroupedChats => {
   const now = new Date();
@@ -77,25 +73,6 @@ const groupChatsByDate = (chats: Chat[]): GroupedChats => {
     } as GroupedChats
   );
 };
-
-export function getChatHistoryPaginationKey(
-  pageIndex: number,
-  previousPageData: ChatHistory
-) {
-  if (previousPageData && previousPageData.hasMore === false) {
-    return null;
-  }
-
-  if (pageIndex === 0) {
-    return `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/history?limit=${PAGE_SIZE}`;
-  }
-
-  if (previousPageData.chats.length === 0) {
-    return null;
-  }
-
-  return `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/history?ending_before=${encodeURIComponent(previousPageData.nextCursor ?? "")}&limit=${PAGE_SIZE}`;
-}
 
 export function SidebarHistory({ user }: { user: AuthUser | undefined }) {
   const { setOpenMobile } = useSidebar();

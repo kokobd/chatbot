@@ -9,7 +9,9 @@ Output ONLY the title text. No prefixes, no formatting.
 Examples:
 - "what's the weather in nyc" → Weather in NYC
 - "help me write an essay about space" → Space Essay Help
-- "hi" → New Conversation
+- "hi" → Hi
 - "debug my python code" → Python Debugging
+
+For greetings and other short messages, use the user's wording instead of a generic title such as "New Conversation".
 
 Never output hashtags, prefixes like "Title:", or quotes.`;

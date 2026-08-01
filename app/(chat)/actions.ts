@@ -6,6 +6,7 @@ import { auth } from "@/app/(auth)/auth";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
 import { titlePrompt } from "@/lib/ai/prompts";
 import { getTitleModel } from "@/lib/ai/providers";
+import { createFallbackTitle, normalizeGeneratedTitle } from "@/lib/ai/title";
 import {
   deleteMessagesByChatIdAfterTimestamp,
   getChatById,
@@ -24,17 +25,22 @@ export async function generateTitleFromUserMessage({
 }: {
   message: UIMessage;
 }) {
-  const { text } = await generateText({
-    instructions: titlePrompt,
-    maxRetries: 0,
-    model: getTitleModel(),
-    prompt: getTextFromMessage(message),
-    timeout: 10_000,
-  });
-  return text
-    .replace(/^[#*"\s]+/, "")
-    .replace(/["]+$/, "")
-    .trim();
+  const messageText = getTextFromMessage(message);
+  const fallback = createFallbackTitle(messageText);
+
+  try {
+    const { text } = await generateText({
+      instructions: titlePrompt,
+      maxRetries: 0,
+      model: getTitleModel(),
+      prompt: messageText,
+      timeout: 10_000,
+    });
+
+    return normalizeGeneratedTitle(text, fallback);
+  } catch {
+    return fallback;
+  }
 }
 
 export async function deleteTrailingMessages({

@@ -1,6 +1,69 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Chat Page", () => {
+  test("adds a new chat to history without a page refresh", async ({
+    page,
+  }) => {
+    const chatId = "11111111-1111-4111-8111-111111111111";
+    let chatCreated = false;
+
+    await page.route("**/api/history**", async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.has("ending_before")) {
+        await route.continue();
+        return;
+      }
+
+      const chat = {
+        createdAt: new Date().toISOString(),
+        deletedAt: null,
+        id: chatId,
+        lifecycle: "active",
+        lifecycleRevision: 0,
+        title: "Hi",
+        userId: "test-user",
+        visibility: "private",
+      };
+
+      await route.fulfill({
+        body: JSON.stringify({
+          chats: chatCreated ? [chat] : [],
+          hasMore: false,
+          nextCursor: null,
+        }),
+        contentType: "application/json",
+        status: 200,
+      });
+    });
+
+    await page.route("**/api/chat", async (route) => {
+      chatCreated = true;
+      await route.fulfill({
+        body: "",
+        headers: { "content-type": "text/event-stream; charset=utf-8" },
+        status: 200,
+      });
+    });
+
+    const initialHistory = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/history?limit=20") &&
+        response.request().method() === "GET"
+    );
+    await page.goto("/");
+    await initialHistory;
+
+    await page.getByTestId("multimodal-input").fill("hi");
+    await page.getByTestId("send-button").click();
+
+    const sidebar = page.locator('[data-slot="sidebar"][data-state]');
+    if ((await sidebar.getAttribute("data-state")) === "collapsed") {
+      await sidebar.getByLabel("Toggle Sidebar").first().click({ force: true });
+    }
+
+    await expect(page.getByText("Hi", { exact: true })).toBeVisible();
+  });
+
   test("home page loads with input field", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByTestId("multimodal-input")).toBeVisible();

@@ -12,6 +12,7 @@
     "check": "ultracite check",
     "fix": "ultracite fix",
     "prepare": "husky",
+    "test:unit": "tsx --test tests/unit/*.test.ts",
     "test:e2e": "pnpm exec playwright test"
   },
   "dependencies": {
