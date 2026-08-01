@@ -131,6 +131,25 @@ test("sends a real DeepSeek V4 Flash text chat", async ({ page, request }) => {
       )
       .toMatch(/^1:[1-9]\d*$/);
 
+    await expect
+      .poll(
+        async () => {
+          const response = await request.get("/api/history?limit=50", {
+            headers: identityHeaders,
+          });
+          if (!response.ok()) {
+            return false;
+          }
+          const body = (await response.json()) as {
+            chats?: Array<{ id?: string; title?: string }>;
+          };
+          const title = body.chats?.find((chat) => chat.id === chatId)?.title;
+          return Boolean(title && title !== "New chat");
+        },
+        { intervals: [250, 500, 1000, 2000], timeout: REQUEST_TIMEOUT }
+      )
+      .toBe(true);
+
     const persistedResponse = await request.get(messagesUrl, {
       headers: identityHeaders,
     });

@@ -20,9 +20,9 @@ export const DEFAULT_CHAT_MODEL = "deepseek/deepseek-v4-pro";
 
 export const titleModel = {
   description: "Fast model for title generation",
-  id: "~google/gemini-flash-latest",
-  name: "Gemini Flash Latest",
-  provider: "google",
+  id: "deepseek/deepseek-v4-flash",
+  name: "DeepSeek V4 Flash",
+  provider: "deepseek",
 };
 
 export const chatModels: ChatModel[] = [

@@ -53,6 +53,8 @@ test.describe("Chat Page", () => {
   });
 });
 
+const shortUserMessages = ["你好", "Hello!", "12345", "🙂", "Hi你好42🙂"];
+
 test.describe("Chat Input Features", () => {
   test("input clears after sending", async ({ page }) => {
     await page.goto("/");
@@ -71,14 +73,57 @@ test.describe("Chat Input Features", () => {
     await expect(input).toContainText("Line 1");
   });
 
-  test("keeps short user messages on one line", async ({ page }) => {
+  for (const text of shortUserMessages) {
+    test(`keeps short user message "${text}" on one line`, async ({ page }) => {
+      await page.setViewportSize({ height: 800, width: 375 });
+      let submittedText: string | undefined;
+      await page.route("**/api/chat", async (route) => {
+        const body = route.request().postDataJSON() as {
+          message?: { parts?: Array<{ text?: string }> };
+        };
+        submittedText = body.message?.parts?.[0]?.text;
+        await route.fulfill({
+          body: "",
+          headers: { "content-type": "text/event-stream; charset=utf-8" },
+          status: 200,
+        });
+      });
+
+      await page.goto("/");
+      await page.getByTestId("multimodal-input").fill(text);
+      await page.getByTestId("send-button").click();
+      await expect.poll(() => submittedText).toBe(text);
+
+      const userContent = page
+        .locator("[data-role='user'] [data-testid='message-content']")
+        .last();
+      await expect(userContent).toHaveText(text);
+
+      const paragraph = userContent.locator("p");
+      await expect(paragraph).toHaveCount(1);
+      await expect.poll(() => paragraph.evaluate(countTextLines)).toBe(1);
+
+      const { leftInset, rightInset } = await paragraph.evaluate((element) => {
+        const content = element.closest("[data-testid='message-content']");
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const contentRect = content?.getBoundingClientRect();
+        const textRect = range.getBoundingClientRect();
+
+        return {
+          leftInset: contentRect ? textRect.left - contentRect.left : 0,
+          rightInset: contentRect ? contentRect.right - textRect.right : 0,
+        };
+      });
+      expect(Math.abs(leftInset - rightInset)).toBeLessThanOrEqual(1);
+    });
+  }
+
+  test("wraps long user messages without overflowing the bubble", async ({
+    page,
+  }) => {
     await page.setViewportSize({ height: 800, width: 375 });
-    let submittedText: string | undefined;
     await page.route("**/api/chat", async (route) => {
-      const body = route.request().postDataJSON() as {
-        message?: { parts?: Array<{ text?: string }> };
-      };
-      submittedText = body.message?.parts?.[0]?.text;
       await route.fulfill({
         body: "",
         headers: { "content-type": "text/event-stream; charset=utf-8" },
@@ -87,37 +132,26 @@ test.describe("Chat Input Features", () => {
     });
 
     await page.goto("/");
-    const input = page.getByTestId("multimodal-input");
-    await input.fill("Hello!");
+    const text =
+      "这是一条足够长的中文消息，用来确认用户气泡会在达到最大宽度后正常换行。";
+    await page.getByTestId("multimodal-input").fill(text);
     await page.getByTestId("send-button").click();
-    await expect.poll(() => submittedText).toBe("Hello!");
 
-    const userContent = page.locator(
-      "[data-role='user'] [data-testid='message-content']"
-    );
-    await expect(userContent).toHaveText("Hello!");
+    const userContent = page
+      .locator("[data-role='user'] [data-testid='message-content']")
+      .last();
+    await expect(userContent).toHaveText(text);
 
     const paragraph = userContent.locator("p");
     await expect(paragraph).toHaveCount(1);
-    const { height, lineHeight, rightPadding } = await paragraph.evaluate(
-      (element) => {
-        const style = getComputedStyle(element);
-        const content = element.closest("[data-testid='message-content']");
-        const textRange = document.createRange();
-        textRange.selectNodeContents(element);
+    await expect
+      .poll(() => paragraph.evaluate(countTextLines))
+      .toBeGreaterThan(1);
 
-        return {
-          height: element.getBoundingClientRect().height,
-          lineHeight: Number.parseFloat(style.lineHeight),
-          rightPadding: content
-            ? content.getBoundingClientRect().right -
-              textRange.getBoundingClientRect().right
-            : 0,
-        };
-      }
+    const bubbleWidth = await userContent.evaluate(
+      (element) => element.getBoundingClientRect().width
     );
-    expect(height).toBeLessThan(lineHeight * 1.5);
-    expect(rightPadding).toBeGreaterThanOrEqual(12);
+    expect(bubbleWidth).toBeLessThanOrEqual(375 * 0.8 + 1);
   });
 
   test("places assistant text below reasoning", async ({ page }) => {
@@ -172,3 +206,11 @@ test.describe("Chat Input Features", () => {
     expect(responseTop).toBeGreaterThanOrEqual(reasoningBottom);
   });
 });
+
+function countTextLines(element: Element) {
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  return new Set(
+    Array.from(range.getClientRects()).map((rect) => Math.round(rect.top))
+  ).size;
+}

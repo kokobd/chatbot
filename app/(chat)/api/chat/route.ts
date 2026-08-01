@@ -5,7 +5,6 @@ import {
   streamText,
   toUIMessageStream,
 } from "ai";
-import { after } from "next/server";
 import { auth, type UserType } from "@/app/(auth)/auth";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import { classifyAIError } from "@/lib/ai/error-classifier";
@@ -111,22 +110,9 @@ export async function POST(request: Request) {
         userId: session.user.id,
         visibility: selectedVisibilityType,
       });
-      // Title generation is best effort and must not gate the chat stream.
-      // `after` also gives the main request a clean failure boundary if the
-      // title provider is slow or unavailable.
-      after(async () => {
-        try {
-          const title = await generateTitleFromUserMessage({ message });
-          await updateChatTitleById({
-            chatId: id,
-            title,
-            userId: session.user.id,
-          });
-        } catch {
-          /* A title is non-critical; keep the default title. */
-        }
-      });
     }
+
+    const shouldGenerateTitle = !chat && message.role === "user";
 
     const uiMessages: ChatMessage[] = [
       ...convertToUIMessages(messagesFromDb),
@@ -260,19 +246,36 @@ export async function POST(request: Request) {
       },
       generateId: generateUUID,
       onEnd: async ({ messages: finishedMessages }) => {
-        if (finishedMessages.length > 0) {
-          await saveMessages({
-            messages: finishedMessages.map((currentMessage) => ({
-              attachments: [],
-              chatId: id,
-              createdAt: new Date(),
-              id: currentMessage.id,
-              parts: currentMessage.parts,
-              role: currentMessage.role,
-              userId: session.user.id,
-            })),
-          });
-        }
+        const titleUpdate = shouldGenerateTitle
+          ? generateTitleFromUserMessage({ message })
+              .then((title) =>
+                updateChatTitleById({
+                  chatId: id,
+                  title,
+                  userId: session.user.id,
+                })
+              )
+              .catch(() => {
+                /* A title is non-critical; keep the default title. */
+              })
+          : Promise.resolve();
+
+        const messageSave =
+          finishedMessages.length > 0
+            ? saveMessages({
+                messages: finishedMessages.map((currentMessage) => ({
+                  attachments: [],
+                  chatId: id,
+                  createdAt: new Date(),
+                  id: currentMessage.id,
+                  parts: currentMessage.parts,
+                  role: currentMessage.role,
+                  userId: session.user.id,
+                })),
+              })
+            : Promise.resolve();
+
+        await Promise.all([messageSave, titleUpdate]);
       },
       onError: (error) => logAIProviderError(error, chatModel).message,
     });
