@@ -1,20 +1,40 @@
-# Chatbot infrastructure
+# Chatbot GCP infrastructure
 
-This Terraform root manages one environment per Terraform CLI workspace. The
-workspace name is intentionally open-ended: use names such as `main`, `test`,
-`staging`, or `feature-abcdef` without changing this configuration. The `main`
-workspace is production.
+This Terraform root provisions the remote GCP resources used by Chatbot. It
+does not run the application locally. For local development, provision or
+select the `test` workspace here, then run only the Next.js/Rust application
+from the repository root. The local process connects to that workspace's real
+Firestore database and GCS bucket through Google APIs; no local Firestore or
+GCS emulator is expected.
 
-The application bucket is named
-`chatbot-<workspace>-<project_id>`, and the Firestore database is named
-`chatbot-<workspace>`. Each workspace receives its own set of resources.
+## Workspace model
+
+Terraform manages one isolated environment per CLI workspace. The workspace
+name is open-ended: use names such as `test`, `main`, `staging`, or
+`feature-abcdef` without changing this configuration.
+
+- `test` is the canonical backing environment for local development.
+- `main` is production.
+- Other workspace names create isolated deployed environments.
+
+Each workspace receives its own application bucket and named Firestore
+database:
+
+```text
+GCS bucket:         chatbot-<workspace>-<project_id>
+Firestore database: chatbot-<workspace>
+```
+
+The workspace also owns its Cloud Build trigger, Cloud Run service, runtime
+service account, and direct Cloud Run IAP policy. The shared Artifact Registry
+repository is owned by `main` and is used by every workspace.
 
 ## One-time state setup
 
 The GCS backend bucket must exist before Terraform can initialize. Create the
 shared state bucket once in the personal GCP project:
 
-```sh
+```bash
 gcloud storage buckets create gs://terraform-state-default-501702 \
   --project=default-501702 \
   --location=us-central1 \
@@ -26,77 +46,96 @@ The state bucket is private and shared by Terraform configurations across
 personal projects. Use a unique `prefix` per project and repository so state
 objects cannot collide.
 
-## Initialize and deploy an environment
+## Provision the local test environment
 
-Authenticate Terraform with Google Application Default Credentials:
+Run these commands from the repository root. Terraform authenticates with
+Google ADC and provisions remote resources; it does not launch Cloud Run or a
+local application process.
 
-```sh
+```bash
 gcloud auth application-default login
-cp backend.hcl.example backend.hcl
-terraform init -backend-config=backend.hcl
-terraform workspace new test
-terraform apply
-terraform output -raw bucket_name
+cp terraform/backend.hcl.example terraform/backend.hcl
+terraform -chdir=terraform init -backend-config=backend.hcl
+terraform -chdir=terraform workspace new test
+terraform -chdir=terraform apply
 ```
 
-For an existing environment, use `terraform workspace select test`. To create
-a feature environment, use `terraform workspace new feature-abcdef` and apply
-again. Each workspace has isolated remote state and a distinct bucket and
-Firestore database.
+For an existing environment:
 
-Terraform provisions one shared Artifact Registry repository (`chatbot`), owned
-by the `main` workspace. Every workspace's Cloud Build trigger can write to that
-repository; image names include the commit SHA, so images remain distinct
-without separate repositories. Terraform also provisions a workspace-specific
-Cloud Build trigger, Cloud Run service, runtime service account, and direct
-Cloud Run IAP policy. A workspace trigger runs only for pushes to the Git branch
-with the same name: `main` deploys the `main` workspace, `test` deploys the
-`test` workspace, and so on. Apply a workspace before pushing to its branch so
-its trigger and service exist. Apply `main` before any other workspace so the
-shared repository exists; applying the other workspaces then removes their
-former workspace-specific repositories.
+```bash
+terraform -chdir=terraform workspace select test
+terraform -chdir=terraform plan
+terraform -chdir=terraform apply
+```
+
+After applying, use the outputs to configure the local process:
+
+```bash
+export GCS_BUCKET="$(terraform -chdir=terraform output -raw bucket_name)"
+export FIRESTORE_PROJECT_ID="$(terraform -chdir=terraform output -raw firestore_project_id)"
+export FIRESTORE_DATABASE_ID="$(terraform -chdir=terraform output -raw firestore_database_id)"
+```
+
+Copy those values into `.env` if they should persist across shells. Then set
+local IAP test identity variables and `OPENROUTER_API_KEY`, and run
+`pnpm dev` from the repository root. See the root
+[`README.md`](../README.md) for the complete local workflow.
+
+Do not use the Terraform `default` workspace; this configuration rejects it to
+avoid creating an accidentally unnamed environment.
+
+## Workspace deployment resources
+
+Terraform provisions one shared Artifact Registry repository (`chatbot`),
+owned by the `main` workspace. Every workspace's Cloud Build trigger can write
+to that repository; image names include the commit SHA, so images remain
+distinct without separate repositories.
+
+Apply `main` before any other workspace so the shared repository and its custom
+Cloud Build role exist. Applying another workspace then creates its
+workspace-specific resources. A workspace trigger runs only for pushes to the
+Git branch with the same name: `main` deploys `main`, `test` deploys `test`,
+and so on. Apply a workspace before pushing to its branch so its trigger and
+service exist.
+
+The trigger checks the source, builds and pushes the runtime image, then
+deploys it to the workspace Cloud Run service. When a build starts, it cancels
+older queued or running builds for the same branch. Cloud Run waits for the
+new revision to be Ready before the build succeeds. After a successful
+deployment, the build moves the image tag `deployed-<workspace>` (for example,
+`deployed-main`) to that revision.
+
+Artifact Registry retains the current successfully deployed image for each
+workspace indefinitely. Other images—including the reusable Docker dependency
+cache, superseded deployments, and failed deployment candidates—become
+eligible for deletion after one day. Cleanup is asynchronous. The image is
+ignored by Terraform lifecycle management, while Terraform continues to
+manage service environment variables, service accounts, IAP configuration,
+and other infrastructure settings.
 
 The primary IAP user is configured with `iap_user_email`. Additional permanent
-users are configured with the versioned `iap_additional_user_emails` allowlist;
-do not supply it only on the command line, or a later apply could revoke access.
+users are configured with the versioned `iap_additional_user_emails`
+allowlist; do not supply them only on the command line, or a later apply could
+revoke access.
 
 Before the first apply that creates a trigger, connect the GitHub repository
 `kokobd/chatbot` to the Cloud Build `us-central1` connection named `github`.
-This is a one-time project-level OAuth connection and cannot be completed by
-Terraform without an existing repository mapping. After connecting it, rerun:
+This one-time project-level OAuth connection cannot be completed by Terraform
+without an existing repository mapping. After connecting it, rerun:
 
-```sh
-terraform apply
+```bash
+terraform -chdir=terraform apply
 ```
-
-The trigger checks the source, builds and pushes the runtime image, then deploys
-it to its workspace Cloud Run service. When a build starts, it cancels any older
-queued or running builds for the same branch, so only the newest started build
-normally continues to deployment. Cloud Run waits for the new revision to be
-Ready before the build succeeds. After a successful deployment the build moves
-the image tag `deployed-<workspace>` (for example, `deployed-main`) to that
-revision. Artifact Registry retains the current successfully deployed image for
-each workspace indefinitely. All other images—including the reusable Docker
-dependency cache, superseded deployments, and failed deployment candidates—
-become eligible for deletion after one day. Cleanup is asynchronous, so an
-eligible image can remain until Artifact Registry's next background run. The
-image is intentionally ignored by Terraform lifecycle management, while
-Terraform continues to manage the service environment variables, service
-account, IAP configuration, and other infrastructure settings.
-
-The `main` workspace also creates the narrowly scoped custom role that lets
-each Cloud Build service account replace its existing `deployed-<workspace>`
-tag; apply `main` before applying any other workspace, as described above.
 
 ## Project-wide GCS secrets
 
 The project-wide secrets bucket is intentionally managed outside Terraform.
 Create it once with `gcloud` and keep it private:
 
-```sh
-export SECRETS_BUCKET="$(terraform output -raw secrets_bucket_name)"
+```bash
+export SECRETS_BUCKET="$(terraform -chdir=terraform output -raw secrets_bucket_name)"
 gcloud storage buckets create "gs://${SECRETS_BUCKET}" \
-  --project="$(terraform output -raw firestore_project_id)" \
+  --project="$(terraform -chdir=terraform output -raw firestore_project_id)" \
   --location=us-central1 \
   --uniform-bucket-level-access \
   --public-access-prevention
@@ -107,7 +146,7 @@ names to string values. `main` reads `production.json`; every other workspace
 reads `test.json`. Terraform grants each runtime service account read access to
 only the object it uses.
 
-```sh
+```bash
 gcloud storage cp ./production.json "gs://${SECRETS_BUCKET}/production.json"
 gcloud storage cp ./test.json "gs://${SECRETS_BUCKET}/test.json"
 ```
@@ -120,18 +159,20 @@ The required secret in each file is its matching OpenRouter key:
 
 Secret values are loaded once by the Rust native service during eager process
 startup. They are never stored in Terraform state, Cloud Build substitutions,
-or the Cloud Run service specification. Update a secret object before deploying
-a revision that needs it.
+or the Cloud Run service specification. Update a secret object before
+deploying a revision that needs it.
+
+## Firestore and application outputs
 
 The `test` workspace uses Firestore Native mode in the location configured by
 `firestore_location` (default `us-central1`). Apply it with:
 
-```sh
-terraform workspace select test
-terraform fmt -check
-terraform validate
-terraform plan
-terraform apply
+```bash
+terraform -chdir=terraform workspace select test
+terraform -chdir=terraform fmt -check
+terraform -chdir=terraform validate
+terraform -chdir=terraform plan
+terraform -chdir=terraform apply
 ```
 
 The Firestore API and named database are managed by Terraform. The database is
@@ -139,52 +180,48 @@ empty when created; no application data is imported or migrated. The `main`
 workspace enables point-in-time recovery and deletion protection, while other
 workspaces use a destroyable database.
 
-Set the output bucket name as `GCS_BUCKET` for the application. The bucket
-allows public object reads because the application returns direct
-`storage.googleapis.com` URLs for uploaded files.
+Use these outputs to configure the local Firestore capability test:
 
-Use these outputs to configure the Firestore capability test:
-
-```sh
-export FIRESTORE_PROJECT_ID="$(terraform output -raw firestore_project_id)"
-export FIRESTORE_DATABASE_ID="$(terraform output -raw firestore_database_id)"
+```bash
+export FIRESTORE_PROJECT_ID="$(terraform -chdir=terraform output -raw firestore_project_id)"
+export FIRESTORE_DATABASE_ID="$(terraform -chdir=terraform output -raw firestore_database_id)"
 pnpm native:firestore:test
 ```
 
 The capability test is part of the native test suite and requires these
-variables and Google Application Default Credentials whenever native tests are
-run:
+variables and Google ADC whenever native tests are run:
 
-```sh
-export FIRESTORE_PROJECT_ID="$(terraform output -raw firestore_project_id)"
-export FIRESTORE_DATABASE_ID="$(terraform output -raw firestore_database_id)"
+```bash
+export FIRESTORE_PROJECT_ID="$(terraform -chdir=terraform output -raw firestore_project_id)"
+export FIRESTORE_DATABASE_ID="$(terraform -chdir=terraform output -raw firestore_database_id)"
 pnpm native:test
 ```
 
 Verify the named database directly when needed:
 
-```sh
+```bash
 gcloud firestore databases describe --database=chatbot-test \
-  --project="$(terraform output -raw firestore_project_id)"
+  --project="$(terraform -chdir=terraform output -raw firestore_project_id)"
 ```
+
+Set the output bucket name as `GCS_BUCKET` for the application. The bucket
+allows public object reads because the application returns direct
+`storage.googleapis.com` URLs for uploaded files.
 
 ## Validation
 
-```sh
-terraform fmt -check
-terraform validate
-terraform workspace list
-terraform plan
+```bash
+terraform -chdir=terraform fmt -check
+terraform -chdir=terraform validate
+terraform -chdir=terraform workspace list
+terraform -chdir=terraform plan
 ```
-
-Do not use the Terraform `default` workspace; this configuration rejects it to
-avoid creating an accidentally unnamed environment.
 
 ## Existing manual bucket
 
 After the Terraform-managed `test` bucket is applied and verified, remove the
 old manually created bucket and its objects:
 
-```sh
+```bash
 gcloud storage rm --recursive gs://chatbot-test-default-501702-20260724
 ```
