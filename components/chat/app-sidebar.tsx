@@ -84,7 +84,7 @@ export function AppSidebar({ user }: { user: AuthUser | undefined }) {
   return (
     <>
       <Sidebar collapsible="icon">
-        <SidebarHeader className="pb-0 pt-3">
+        <SidebarHeader className="pb-1 pt-4">
           <SidebarMenu>
             <SidebarMenuItem className="flex flex-row items-center justify-between">
               <div className="group/logo relative flex items-center justify-center">
@@ -94,7 +94,7 @@ export function AppSidebar({ user }: { user: AuthUser | undefined }) {
                   tooltip="Chatbot"
                 >
                   <Link href="/" onClick={closeMobile}>
-                    <MessageSquareIcon className="size-4 text-sidebar-foreground/50" />
+                    <MessageSquareIcon className="size-4 text-sidebar-foreground" />
                   </Link>
                 </SidebarMenuButton>
                 <Tooltip>
@@ -112,18 +112,18 @@ export function AppSidebar({ user }: { user: AuthUser | undefined }) {
                 </Tooltip>
               </div>
               <div className="group-data-[collapsible=icon]:hidden">
-                <SidebarTrigger className="text-sidebar-foreground/60 transition-colors duration-150 hover:text-sidebar-foreground" />
+                <SidebarTrigger className="text-sidebar-foreground transition-colors duration-150 hover:bg-sidebar-accent hover:text-sidebar-foreground" />
               </div>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarHeader>
         <SidebarContent>
-          <SidebarGroup className="pt-1">
+          <SidebarGroup className="pt-2">
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    className="h-8 rounded-lg border border-sidebar-border text-[13px] text-sidebar-foreground/70 transition-colors duration-150 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                    className="h-10 rounded-xl border border-sidebar-border bg-sidebar text-sm text-sidebar-foreground transition-colors duration-150 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                     onClick={handleNewChat}
                     tooltip="New Chat"
                   >
@@ -134,12 +134,12 @@ export function AppSidebar({ user }: { user: AuthUser | undefined }) {
                 {user ? (
                   <SidebarMenuItem>
                     <SidebarMenuButton
-                      className="rounded-lg text-sidebar-foreground/40 transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive"
+                      className="rounded-lg text-sm text-sidebar-foreground transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive"
                       onClick={handleShowDeleteAllDialog}
                       tooltip="Delete All Chats"
                     >
                       <TrashIcon className="size-4" />
-                      <span className="text-[13px]">Delete all</span>
+                      <span>Delete all</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ) : null}
@@ -148,7 +148,7 @@ export function AppSidebar({ user }: { user: AuthUser | undefined }) {
           </SidebarGroup>
           <SidebarHistory user={user} />
         </SidebarContent>
-        <SidebarFooter className="border-t border-sidebar-border pt-2 pb-3">
+        <SidebarFooter className="border-t border-sidebar-border pt-3 pb-4">
           {user ? <SidebarUserNav user={user} /> : null}
         </SidebarFooter>
         <SidebarRail />

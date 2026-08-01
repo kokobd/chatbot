@@ -4,7 +4,6 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
 import { ArrowUpIcon, BrainIcon, EyeIcon, LockIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import {
   type ChangeEvent,
   type Dispatch,
@@ -95,7 +94,6 @@ function PureMultimodalInput({
   onCancelEdit?: () => void;
 }) {
   const router = useRouter();
-  const { setTheme, resolvedTheme } = useTheme();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
   const hasAutoFocused = useRef(false);
@@ -169,9 +167,6 @@ function PureMultimodalInput({
           modelBtn?.click();
           break;
         }
-        case "theme":
-          setTheme(resolvedTheme === "dark" ? "light" : "dark");
-          break;
         case "delete":
           toast("Delete this chat?", {
             action: {
@@ -208,7 +203,7 @@ function PureMultimodalInput({
           break;
       }
     },
-    [chatId, resolvedTheme, router, setInput, setMessages, setTheme]
+    [chatId, router, setInput, setMessages]
   );
 
   const submitForm = useCallback(() => {
@@ -435,7 +430,7 @@ function PureMultimodalInput({
   return (
     <div className={cn("relative flex w-full flex-col gap-4", className)}>
       {editingMessage && onCancelEdit ? (
-        <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>Editing message</span>
           <button
             className="rounded px-1.5 py-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
@@ -501,7 +496,10 @@ function PureMultimodalInput({
           </div>
         )}
         <PromptInputTextarea
-          className="min-h-24 text-[13px] leading-relaxed px-4 pt-3.5 pb-1.5 placeholder:text-muted-foreground/35"
+          aria-autocomplete="list"
+          aria-controls={slashOpen ? "slash-command-menu" : undefined}
+          aria-expanded={slashOpen}
+          className="min-h-20 px-4 pt-4 pb-2 text-[15px] leading-relaxed placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 md:text-[15px]"
           data-testid="multimodal-input"
           onChange={handleInput}
           onKeyDown={handleTextareaKeyDown}
@@ -511,7 +509,7 @@ function PureMultimodalInput({
           ref={textareaRef}
           value={input}
         />
-        <PromptInputFooter className="px-3 pb-3">
+        <PromptInputFooter className="px-3 pb-3.5">
           <PromptInputTools>
             <AttachmentsButton
               fileInputRef={fileInputRef}
@@ -529,10 +527,10 @@ function PureMultimodalInput({
           ) : (
             <PromptInputSubmit
               className={cn(
-                "h-7 w-7 rounded-xl transition-all duration-200",
+                "size-9 rounded-full transition-all duration-200",
                 input.trim() || attachments.length > 0
                   ? "bg-foreground text-background hover:opacity-85 active:scale-95"
-                  : "bg-muted text-muted-foreground/25 cursor-not-allowed"
+                  : "cursor-not-allowed bg-muted text-muted-foreground/50"
               )}
               data-testid="send-button"
               disabled={
@@ -766,7 +764,7 @@ function PureModelSelectorCompact({
     <ModelSelector onOpenChange={setOpen} open={open}>
       <ModelSelectorTrigger asChild>
         <Button
-          className="h-7 max-w-[200px] justify-between gap-1.5 rounded-lg px-2 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+          className="h-8 max-w-[220px] justify-between gap-1.5 rounded-lg px-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           data-testid="model-selector"
           variant="ghost"
         >
@@ -885,7 +883,7 @@ function PureStopButton({
 
   return (
     <Button
-      className="h-7 w-7 rounded-xl bg-foreground p-1 text-background transition-all duration-200 hover:opacity-85 active:scale-95 disabled:bg-muted disabled:text-muted-foreground/25 disabled:cursor-not-allowed"
+      className="size-9 rounded-full bg-foreground p-2 text-background transition-all duration-200 hover:bg-foreground/85 active:scale-95 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground/50"
       data-testid="stop-button"
       onClick={handleClick}
     >

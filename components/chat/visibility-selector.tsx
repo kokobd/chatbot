@@ -77,7 +77,7 @@ function VisibilitySelectorItem({
           </div>
         ) : null}
       </div>
-      <div className="text-foreground opacity-0 group-data-[active=true]/item:opacity-100 dark:text-foreground">
+      <div className="text-foreground opacity-0 group-data-[active=true]/item:opacity-100">
         <CheckCircleFillIcon />
       </div>
     </DropdownMenuItem>

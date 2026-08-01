@@ -65,9 +65,18 @@ export default defineConfig({
   projects: [
     {
       name: "e2e",
+      testIgnore: /e2e\/mobile-layout\.test\.ts/,
       testMatch: /e2e\/.*.test.ts/,
       use: {
         ...devices["Desktop Chrome"],
+      },
+    },
+
+    {
+      name: "mobile-layout",
+      testMatch: /e2e\/mobile-layout\.test\.ts/,
+      use: {
+        ...devices["Pixel 5"],
       },
     },
 

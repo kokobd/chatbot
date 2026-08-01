@@ -24,6 +24,18 @@ test.describe("Chat Page", () => {
     await expect(suggestions).toHaveCount(0);
   });
 
+  test("stays light and does not expose a theme command", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/");
+
+    await expect(page.locator("html")).not.toHaveClass(/dark/);
+    await page.getByTestId("multimodal-input").fill("/");
+    await expect(
+      page.getByRole("listbox", { name: "Slash commands" })
+    ).toBeVisible();
+    await expect(page.getByRole("option", { name: /theme/i })).toHaveCount(0);
+  });
+
   test("can stop generation with stop button", async ({ page }) => {
     await page.goto("/");
 

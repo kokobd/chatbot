@@ -1,14 +1,12 @@
 "use client";
 
 import { ChevronUp } from "lucide-react";
-import { useTheme } from "next-themes";
 import { useCallback } from "react";
 import type { AuthUser } from "@/app/(auth)/auth";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -26,12 +24,6 @@ function emailToHue(email: string): number {
 }
 
 export function SidebarUserNav({ user }: { user: AuthUser }) {
-  const { setTheme, resolvedTheme } = useTheme();
-
-  const handleThemeSelect = useCallback(() => {
-    setTheme(resolvedTheme === "dark" ? "light" : "dark");
-  }, [resolvedTheme, setTheme]);
-
   const handleSignOut = useCallback(() => {
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
     window.location.assign(`${basePath}/?gcp-iap-mode=GCIP_SIGNOUT`);
@@ -43,7 +35,7 @@ export function SidebarUserNav({ user }: { user: AuthUser }) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
-              className="h-8 px-2 rounded-lg bg-transparent text-sidebar-foreground/70 transition-colors duration-150 hover:text-sidebar-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="h-9 rounded-lg bg-transparent px-2 text-sm text-sidebar-foreground/80 transition-colors duration-150 hover:bg-sidebar-accent hover:text-sidebar-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               data-testid="user-nav-button"
             >
               <div
@@ -52,10 +44,10 @@ export function SidebarUserNav({ user }: { user: AuthUser }) {
                   background: `linear-gradient(135deg, oklch(0.35 0.08 ${emailToHue(user.email)}), oklch(0.25 0.05 ${emailToHue(user.email) + 40}))`,
                 }}
               />
-              <span className="truncate text-[13px]" data-testid="user-email">
+              <span className="truncate" data-testid="user-email">
                 {user.email}
               </span>
-              <ChevronUp className="ml-auto size-3.5 text-sidebar-foreground/50" />
+              <ChevronUp className="ml-auto size-4 text-sidebar-foreground" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -63,17 +55,9 @@ export function SidebarUserNav({ user }: { user: AuthUser }) {
             data-testid="user-nav-menu"
             side="top"
           >
-            <DropdownMenuItem
-              className="cursor-pointer text-[13px]"
-              data-testid="user-nav-item-theme"
-              onSelect={handleThemeSelect}
-            >
-              {`Toggle ${resolvedTheme === "light" ? "dark" : "light"} mode`}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
             <DropdownMenuItem asChild data-testid="user-nav-item-auth">
               <button
-                className="w-full cursor-pointer text-[13px]"
+                className="w-full cursor-pointer text-sm"
                 onClick={handleSignOut}
                 type="button"
               >

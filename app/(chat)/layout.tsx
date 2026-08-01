@@ -35,7 +35,7 @@ async function SidebarShell({ children }: { children: React.ReactNode }) {
       <SidebarInset>
         <Toaster
           position="top-center"
-          theme="system"
+          theme="light"
           toastOptions={{
             className:
               "!bg-card !text-foreground !border-border/50 !shadow-[var(--shadow-float)]",

@@ -3,7 +3,6 @@
 import {
   BombIcon,
   ListIcon,
-  PaletteIcon,
   PenLineIcon,
   PenSquareIcon,
   Trash2Icon,
@@ -44,12 +43,6 @@ export const slashCommands: SlashCommand[] = [
     description: "Change the AI model",
     icon: <ListIcon className="size-3.5" />,
     name: "model",
-  },
-  {
-    action: "theme",
-    description: "Toggle dark/light mode",
-    icon: <PaletteIcon className="size-3.5" />,
-    name: "theme",
   },
   {
     action: "delete",
@@ -96,24 +89,24 @@ function SlashCommandMenuItem({
 
   return (
     <button
+      aria-selected={index === selectedIndex}
       className={cn(
-        "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors",
-        index === selectedIndex ? "bg-muted/70" : "hover:bg-muted/40"
+        "flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors",
+        index === selectedIndex ? "bg-accent" : "hover:bg-accent/70"
       )}
       data-selected={index === selectedIndex}
       onClick={handleClick}
       onMouseDown={handleMouseDown}
+      role="option"
       type="button"
     >
-      <div className="flex size-6 shrink-0 items-center justify-center text-muted-foreground/60">
+      <div className="flex size-7 shrink-0 items-center justify-center text-muted-foreground">
         {cmd.icon}
       </div>
-      <span className="font-mono text-[13px] text-foreground">/{cmd.name}</span>
-      <span className="text-[12px] text-muted-foreground/50">
-        {cmd.description}
-      </span>
+      <span className="font-mono text-sm text-foreground">/{cmd.name}</span>
+      <span className="text-sm text-muted-foreground">{cmd.description}</span>
       {cmd.shortcut ? (
-        <span className="ml-auto text-[11px] text-muted-foreground/30">
+        <span className="ml-auto text-xs text-muted-foreground">
           {cmd.shortcut}
         </span>
       ) : null}
@@ -145,10 +138,13 @@ export function SlashCommandMenu({
 
   return (
     <div
-      className="absolute bottom-full left-0 right-0 z-50 mb-2 overflow-hidden rounded-xl border border-border/50 bg-card/95 shadow-[var(--shadow-float)] backdrop-blur-xl"
+      aria-label="Slash commands"
+      className="absolute right-0 bottom-full left-0 z-50 mb-2 overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-float)]"
+      id="slash-command-menu"
       ref={menuRef}
+      role="listbox"
     >
-      <div className="px-4 py-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40">
+      <div className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         Commands
       </div>
       <div className="max-h-64 overflow-y-auto pb-1 no-scrollbar">

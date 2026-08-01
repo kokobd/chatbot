@@ -67,7 +67,7 @@ export const ModelSelectorInput = ({
   className,
   ...props
 }: ModelSelectorInputProps) => (
-  <CommandInput className={cn("h-auto py-2.5 text-[13px]", className)} {...props} />
+  <CommandInput className={cn("h-auto py-3 text-sm", className)} {...props} />
 );
 
 export type ModelSelectorListProps = ComponentProps<typeof CommandList>;
@@ -91,7 +91,7 @@ export const ModelSelectorGroup = (props: ModelSelectorGroupProps) => (
 export type ModelSelectorItemProps = ComponentProps<typeof CommandItem>;
 
 export const ModelSelectorItem = ({ className, ...props }: ModelSelectorItemProps) => (
-  <CommandItem className={cn("w-full text-[13px] rounded-lg", className)} {...props} />
+  <CommandItem className={cn("w-full rounded-lg text-sm", className)} {...props} />
 );
 
 export type ModelSelectorShortcutProps = ComponentProps<typeof CommandShortcut>;
@@ -180,7 +180,7 @@ export const ModelSelectorLogo = ({
   <img
     {...props}
     alt={`${provider} logo`}
-    className={cn("size-4 dark:invert", className)}
+    className={cn("size-4", className)}
     height={16}
     src={`https://models.dev/logos/${provider}.svg`}
     width={16}

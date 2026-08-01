@@ -16,7 +16,7 @@ function WaitingText() {
   const { waitingStatus } = useDataStream();
 
   return (
-    <div className="flex min-h-[calc(13px*1.65)] min-w-0 items-center text-[13px] leading-[1.65]">
+    <div className="flex min-h-[calc(15px*1.65)] min-w-0 items-center text-[15px] leading-[1.65]">
       <Shimmer
         as="span"
         className="font-medium whitespace-normal break-words"
@@ -85,14 +85,20 @@ export const PreviewMessage = ({
     if (part.type === "text") {
       return (
         <MessageContent
-          className={cn("text-[13px] leading-[1.65]", {
-            "w-fit max-w-[min(80%,56ch)] overflow-hidden break-words rounded-2xl rounded-br-lg border border-border/30 bg-gradient-to-br from-secondary to-muted px-3.5 py-2 shadow-[var(--shadow-card)]":
+          className={cn("text-[15px] leading-[1.65]", {
+            "w-fit max-w-[min(80%,60ch)] overflow-hidden break-words rounded-2xl rounded-br-md border border-border bg-secondary px-4 py-2.5 shadow-[var(--shadow-card)]":
               isUser,
           })}
           data-testid="message-content"
           key={key}
         >
-          <MessageResponse className={isUser ? "w-auto" : undefined}>
+          <MessageResponse
+            className={
+              isUser
+                ? "w-fit max-w-full [&>p]:m-0 [&>p]:w-fit [&>p]:leading-[1.65]"
+                : undefined
+            }
+          >
             {sanitizeText(part.text)}
           </MessageResponse>
         </MessageContent>
@@ -135,9 +141,9 @@ export const PreviewMessage = ({
         )}
       >
         {isAssistant && (
-          <div className="flex h-[calc(13px*1.65)] shrink-0 items-center">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground ring-1 ring-border/50">
-              <SparklesIcon size={13} />
+          <div className="flex h-[calc(15px*1.65)] shrink-0 items-center">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-secondary text-foreground ring-1 ring-border">
+              <SparklesIcon size={15} />
             </div>
           </div>
         )}
@@ -158,9 +164,9 @@ export const ThinkingMessage = () => (
     data-testid="message-assistant-loading"
   >
     <div className="flex items-start gap-3">
-      <div className="flex h-[calc(13px*1.65)] shrink-0 items-center">
-        <div className="flex size-7 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground ring-1 ring-border/50">
-          <SparklesIcon size={13} />
+      <div className="flex h-[calc(15px*1.65)] shrink-0 items-center">
+        <div className="flex size-8 items-center justify-center rounded-lg bg-secondary text-foreground ring-1 ring-border">
+          <SparklesIcon size={15} />
         </div>
       </div>
       <WaitingText />
