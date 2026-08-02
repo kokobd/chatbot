@@ -27,5 +27,6 @@ tsconfig.tsbuildinfo
 .pnpm-store/
 /native/*.node
 /native/target/
+/target/
 .idea/
 .playwright-mcp/

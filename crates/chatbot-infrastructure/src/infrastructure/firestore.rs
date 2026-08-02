@@ -5,7 +5,7 @@ use firestore::{FirestoreDb, FirestoreDbOptions, FirestoreResult};
 /// Credentials support; configuration is supplied by the composition root or
 /// by a process-specific entrypoint.
 #[allow(dead_code)]
-pub(crate) async fn connect(project_id: &str, database_id: &str) -> FirestoreResult<FirestoreDb> {
+pub async fn connect(project_id: &str, database_id: &str) -> FirestoreResult<FirestoreDb> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     FirestoreDb::with_options(
@@ -91,7 +91,9 @@ mod tests {
         }
     }
 
+    /// Requires a Terraform-provisioned named Firestore database and ADC.
     #[tokio::test]
+    #[ignore]
     async fn firestore_supports_required_primitives() -> firestore::FirestoreResult<()> {
         let (project_id, database_id) = stage_database_configuration();
         let db = connect(&project_id, &database_id).await?;

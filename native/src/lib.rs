@@ -1,6 +1,5 @@
-mod application;
-pub mod domain;
-mod infrastructure;
+pub use chatbot_core::{application, domain};
+pub use chatbot_infrastructure::infrastructure;
 pub mod migration;
 mod service;
 

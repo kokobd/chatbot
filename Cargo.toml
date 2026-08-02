@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "native",
+    "crates/chatbot-core",
+    "crates/chatbot-infrastructure",
+    "crates/chatbot-protocol",
+]
+resolver = "2"
