@@ -9,9 +9,7 @@ use crate::application::iap_identity::{
     AuthenticatedIdentity, IapIdentityProvider, IapIdentityProviderError, IapRequestEvidence,
 };
 use crate::application::message_service::{MessageService, MessageServiceError};
-use crate::application::repository::{
-    ChatRepository, MessageRepository, UserRepository,
-};
+use crate::application::repository::{ChatRepository, MessageRepository, UserRepository};
 use crate::application::secrets::{SecretLoadError, SecretLoader, SecretMap};
 use crate::application::user_service::{UserService, UserServiceError};
 use crate::infrastructure::firestore_chat_repository::FirestoreChatRepository;

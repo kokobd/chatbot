@@ -120,9 +120,16 @@ pub struct ApiError {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "event", content = "data", rename_all = "snake_case")]
 pub enum ChatStreamEvent {
-    Status { phase: String, message: String },
-    ReasoningDelta { delta: String },
-    TextDelta { delta: String },
+    Status {
+        phase: String,
+        message: String,
+    },
+    ReasoningDelta {
+        delta: String,
+    },
+    TextDelta {
+        delta: String,
+    },
     Complete {
         message: ChatMessage,
         usage: Option<Usage>,

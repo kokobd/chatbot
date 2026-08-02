@@ -4,5 +4,6 @@ members = [
     "crates/chatbot-core",
     "crates/chatbot-infrastructure",
     "crates/chatbot-protocol",
+    "crates/chatbot-web",
 ]
 resolver = "2"

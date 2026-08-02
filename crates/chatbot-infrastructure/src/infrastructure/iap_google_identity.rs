@@ -44,6 +44,31 @@ struct IapClaims {
 }
 
 impl GoogleIapIdentityProvider {
+    pub fn new(
+        audience: String,
+        issuer: String,
+        key_timeout: Duration,
+    ) -> Result<Self, IapIdentityProviderError> {
+        if audience.trim().is_empty() || issuer.trim().is_empty() {
+            return Err(IapIdentityProviderError::Configuration(
+                "IAP audience and issuer must not be empty".to_string(),
+            ));
+        }
+        let client = Client::builder()
+            .timeout(key_timeout)
+            .build()
+            .map_err(|_| {
+                IapIdentityProviderError::Configuration("IAP HTTP client setup failed".to_string())
+            })?;
+        Ok(Self {
+            audience,
+            issuer,
+            key_url: DEFAULT_PUBLIC_KEY_URL.to_string(),
+            client,
+            keys: Arc::new(RwLock::new(None)),
+        })
+    }
+
     pub fn from_env() -> Result<Self, IapIdentityProviderError> {
         let audience = std::env::var("IAP_JWT_AUDIENCE").map_err(|_| {
             IapIdentityProviderError::Configuration("IAP_JWT_AUDIENCE is required".to_string())
@@ -54,14 +79,14 @@ impl GoogleIapIdentityProvider {
             ));
         }
 
-        Ok(Self {
+        let mut provider = Self::new(
             audience,
-            issuer: std::env::var("IAP_JWT_ISSUER").unwrap_or_else(|_| DEFAULT_ISSUER.to_string()),
-            key_url: std::env::var("IAP_JWT_PUBLIC_KEYS_URL")
-                .unwrap_or_else(|_| DEFAULT_PUBLIC_KEY_URL.to_string()),
-            client: Client::new(),
-            keys: Arc::new(RwLock::new(None)),
-        })
+            std::env::var("IAP_JWT_ISSUER").unwrap_or_else(|_| DEFAULT_ISSUER.to_string()),
+            Duration::from_secs(5),
+        )?;
+        provider.key_url = std::env::var("IAP_JWT_PUBLIC_KEYS_URL")
+            .unwrap_or_else(|_| DEFAULT_PUBLIC_KEY_URL.to_string());
+        Ok(provider)
     }
 
     async fn public_key(&self, key_id: &str) -> Result<String, IapIdentityProviderError> {

@@ -6,3 +6,4 @@ pub mod gcs_object_storage;
 pub mod gcs_secret_store;
 pub mod iap_google_identity;
 pub mod iap_test_identity;
+pub mod openrouter;

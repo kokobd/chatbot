@@ -29,8 +29,7 @@ pub struct GcsObjectStorage {
 }
 
 impl GcsObjectStorage {
-    pub async fn new_from_env() -> Result<Self, GcsObjectStorageError> {
-        let bucket = env::var("GCS_BUCKET").map_err(|_| GcsObjectStorageError::MissingBucket)?;
+    pub async fn new(bucket: String) -> Result<Self, GcsObjectStorageError> {
         if bucket.trim().is_empty() {
             return Err(GcsObjectStorageError::EmptyBucket);
         }
@@ -41,6 +40,11 @@ impl GcsObjectStorage {
             .map_err(|error| GcsObjectStorageError::Client(error.to_string()))?;
 
         Ok(Self { bucket, client })
+    }
+
+    pub async fn new_from_env() -> Result<Self, GcsObjectStorageError> {
+        let bucket = env::var("GCS_BUCKET").map_err(|_| GcsObjectStorageError::MissingBucket)?;
+        Self::new(bucket).await
     }
 
     fn public_url_for(bucket: &str, object_name: &str) -> String {

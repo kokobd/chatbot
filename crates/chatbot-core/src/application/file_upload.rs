@@ -36,8 +36,19 @@ where
         filename: String,
         content_type: String,
     ) -> Result<UploadResult, FileUploadError> {
+        self.upload_for_user(None, data, filename, content_type)
+            .await
+    }
+
+    pub async fn upload_for_user(
+        &self,
+        user_id: Option<&str>,
+        data: Bytes,
+        filename: String,
+        content_type: String,
+    ) -> Result<UploadResult, FileUploadError> {
         let pathname = safe_filename(&filename);
-        let object_name = object_name(&pathname);
+        let object_name = object_name(user_id, &pathname);
 
         self.storage
             .put_object(&object_name, data, &content_type)
@@ -70,8 +81,11 @@ fn safe_filename(filename: &str) -> String {
     }
 }
 
-fn object_name(filename: &str) -> String {
-    format!("uploads/{}/{}", Uuid::new_v4(), filename)
+fn object_name(user_id: Option<&str>, filename: &str) -> String {
+    match user_id {
+        Some(user_id) => format!("uploads/{}/{}", safe_filename(user_id), filename),
+        None => format!("uploads/{}/{}", Uuid::new_v4(), filename),
+    }
 }
 
 #[cfg(test)]
@@ -115,7 +129,8 @@ mod tests {
         let service = FileUploadService::new(storage);
 
         let result = service
-            .upload(
+            .upload_for_user(
+                Some("user-1"),
                 Bytes::from_static(b"png data"),
                 "my image?.png".to_string(),
                 "image/png".to_string(),
@@ -129,7 +144,7 @@ mod tests {
 
         let uploaded = uploaded.lock().unwrap();
         assert_eq!(uploaded.len(), 1);
-        assert!(uploaded[0].0.ends_with("/my_image_.png"));
+        assert!(uploaded[0].0.ends_with("/user-1/my_image_.png"));
         assert_eq!(uploaded[0].1, b"png data");
         assert_eq!(uploaded[0].2, "image/png");
     }

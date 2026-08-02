@@ -8,10 +8,7 @@ use tokio_util::sync::CancellationToken;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ModelContentPart {
     Text(String),
-    Image {
-        url: String,
-        media_type: String,
-    },
+    Image { url: String, media_type: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -83,7 +80,8 @@ impl LanguageModelError {
     }
 }
 
-pub type ModelStream = Pin<Box<dyn Stream<Item = Result<ModelStreamEvent, LanguageModelError>> + Send>>;
+pub type ModelStream =
+    Pin<Box<dyn Stream<Item = Result<ModelStreamEvent, LanguageModelError>> + Send>>;
 
 #[async_trait]
 pub trait LanguageModel: Send + Sync {
