@@ -33,15 +33,16 @@ terraform -chdir=terraform apply
 ```
 
 Set the resulting `GCS_BUCKET`, `FIRESTORE_PROJECT_ID`, and
-`FIRESTORE_DATABASE_ID` values in `.env`, along with a local test identity and
-the OpenRouter key:
+`FIRESTORE_DATABASE_ID` values in `.env`, along with the OpenRouter key:
 
 ```dotenv
 IAP_AUTH_PROVIDER=test
-IAP_TEST_EMAIL=local@example.com
-IAP_TEST_SUBJECT=local-development-user
 OPENROUTER_API_KEY=your-key
 ```
+
+When using test authentication, send
+`x-goog-authenticated-user-email` and `x-goog-authenticated-user-id` headers
+with the `accounts.google.com:` prefix on authenticated requests.
 
 Start the server with:
 
