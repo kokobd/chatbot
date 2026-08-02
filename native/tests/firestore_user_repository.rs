@@ -1,8 +1,8 @@
 use std::env;
 use std::sync::Arc;
 
-use chatbot_native::domain::{IapIdentity, User};
-use chatbot_native::{
+use chatbot_tools::domain::{IapIdentity, User};
+use chatbot_tools::{
     FirestoreUserRepository, IapUser, PersistenceError, UserRepository, UserService,
 };
 use chrono::{DateTime, Utc};
@@ -78,7 +78,7 @@ async fn round_trips_create_lookup_and_email_update() {
             Some(expected.clone())
         );
 
-        let email = chatbot_native::Email::new("new@example.com").unwrap();
+        let email = chatbot_tools::Email::new("new@example.com").unwrap();
         let updated = repository
             .update_iap_email(&identity.subject, &email)
             .await?;
@@ -142,7 +142,7 @@ async fn email_update_preserves_unrelated_fields_and_malformed_records_are_rejec
             .await
             .unwrap();
 
-        let email = chatbot_native::Email::new("new@example.com").unwrap();
+        let email = chatbot_tools::Email::new("new@example.com").unwrap();
         let updated = repository
             .update_iap_email(&identity.subject, &email)
             .await?;

@@ -32,9 +32,8 @@ steps:
             --format='value(id)'
         )
 
-  # BuildKit imports and exports every stage in this one build. In particular,
-  # the test stage feeds the production build, so Rust is built once for tests
-  # and once for the N-API cdylib even when the registry cache is cold.
+  # BuildKit imports and exports every stage in this one build. The image is a
+  # Rust server binary and has no JavaScript package or native addon step.
   - name: gcr.io/cloud-builders/docker
     id: build
     entrypoint: bash

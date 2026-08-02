@@ -1,7 +1,7 @@
 //! Provider-independent application values and invariants.
 //!
-//! Nothing in this module knows about N-API, a database, a cloud provider, or
-//! process configuration. Adapters can translate these values to their own
+//! Nothing in this module knows about a database, a cloud provider, or process
+//! configuration. Adapters can translate these values to their own
 //! wire and persistence representations.
 
 pub mod chat;

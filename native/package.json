@@ -1,6 +1,0 @@
-{
-  "name": "@chatbot/native",
-  "private": true,
-  "main": "index.js",
-  "types": "index.d.ts"
-}

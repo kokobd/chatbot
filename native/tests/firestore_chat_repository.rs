@@ -2,8 +2,8 @@ use std::env;
 use std::fs;
 use std::sync::Once;
 
-use chatbot_native::domain::{Chat, LifecycleState, Visibility};
-use chatbot_native::{
+use chatbot_tools::domain::{Chat, LifecycleState, Visibility};
+use chatbot_tools::{
     ChatHistoryCursor, ChatHistoryQuery, ChatRepository, ChatTitle, FirestoreChatRepository,
     PersistenceError,
 };

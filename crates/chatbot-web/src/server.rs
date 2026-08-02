@@ -59,6 +59,14 @@ pub fn hydrate() {
 const MAX_UPLOAD_BYTES: usize = 5 * 1024 * 1024;
 const MAX_MESSAGES_PER_HOUR: u64 = 100;
 
+struct CancellationOnDrop(CancellationToken);
+
+impl Drop for CancellationOnDrop {
+    fn drop(&mut self) {
+        self.0.cancel();
+    }
+}
+
 #[derive(Clone)]
 pub struct AppState {
     pub auth: Arc<IapAuthenticationService>,
@@ -637,6 +645,7 @@ async fn stream_message(
     let chat_id = chat.id.clone();
     let message_id = Uuid::new_v4().to_string();
     let stream = async_stream::stream! {
+        let _cancellation_on_drop = CancellationOnDrop(cancellation);
         yield Ok::<Event, Infallible>(sse_event(ChatStreamEvent::Status { phase: "waiting".into(), message: "Waiting...".into() }));
         let response = model.stream(model_request).await;
         match response {

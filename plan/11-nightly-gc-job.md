@@ -2,8 +2,8 @@
 
 ## Status
 
-Separate process; not part of the Node.js runtime migration. Implement after
-the Firestore cutover and deploy it as a dedicated GCP Cloud Run Job scheduled
+Separate process; not part of the web request runtime. Implement after the
+Firestore cutover and deploy it as a dedicated GCP Cloud Run Job scheduled
 once per night.
 
 ## Goal
@@ -16,7 +16,7 @@ application has already hidden through tombstones or head-pointer changes.
 - Build a standalone job entrypoint with the shared Rust Firestore client and
   application cleanup ports/rules selected by its own composition root. Cleanup
   ports expose stable application errors and Firestore mapping remains in
-  infrastructure. It must not depend on N-API or the main Node.js process.
+  infrastructure. It must not depend on the web process.
 - Purge chats marked `deleting`/`deleted`: messages, votes, streams, then the
   parent chat document.
 - Purge artifact versions and suggestions marked unreachable after the

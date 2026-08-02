@@ -32,7 +32,7 @@ replacing application images deployed by Cloud Build.
   - production deletion protection consistent with the existing Firestore
     policy.
 - Manage all non-secret application environment variables in the Cloud Run
-  template, including `NODE_ENV`, `IAP_AUTH_PROVIDER`,
+  template, including `IAP_AUTH_PROVIDER`,
   `IAP_JWT_AUDIENCE`, `GCS_BUCKET`, `FIRESTORE_PROJECT_ID`,
   `FIRESTORE_DATABASE_ID`, and `SECRETS_GCS_PATH`.
 - Create a dedicated runtime service account per workspace. Grant it only the
