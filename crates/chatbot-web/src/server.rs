@@ -24,6 +24,7 @@ use chatbot_core::{
         },
         message_service::{MessageService, MessageServiceError},
         repository::{ChatHistoryCursor, ChatHistoryQuery, PersistenceError},
+        secrets::SecretLoader,
         user_service::{UserService, UserServiceError},
     },
     domain::{Chat, IapIdentity, Message, MessageRole, Visibility},
@@ -32,8 +33,8 @@ use chatbot_infrastructure::infrastructure::{
     firestore::connect, firestore_chat_repository::FirestoreChatRepository,
     firestore_message_repository::FirestoreMessageRepository,
     firestore_user_repository::FirestoreUserRepository, gcs_object_storage::GcsObjectStorage,
-    iap_google_identity::GoogleIapIdentityProvider, iap_test_identity::TestIapIdentityProvider,
-    openrouter::OpenRouter,
+    gcs_secret_store::GcsSecretObjectStore, iap_google_identity::GoogleIapIdentityProvider,
+    iap_test_identity::TestIapIdentityProvider, openrouter::OpenRouter,
 };
 use chatbot_protocol::{
     ApiError, ApiErrorCode, ChatHistoryResponse, ChatMessage, ChatResponse, ChatStreamEvent,
@@ -98,7 +99,8 @@ pub struct ServerConfig {
     pub iap_provider: String,
     pub iap_audience: Option<String>,
     pub iap_issuer: String,
-    pub openrouter_api_key: String,
+    pub openrouter_api_key: Option<String>,
+    pub secrets_gcs_path: Option<String>,
     pub openrouter_http_referer: Option<String>,
     pub openrouter_app_name: Option<String>,
 }
@@ -127,7 +129,8 @@ impl ServerConfig {
             iap_audience: std::env::var("IAP_JWT_AUDIENCE").ok(),
             iap_issuer: std::env::var("IAP_JWT_ISSUER")
                 .unwrap_or_else(|_| "https://cloud.google.com/iap".into()),
-            openrouter_api_key: required("OPENROUTER_API_KEY")?,
+            openrouter_api_key: std::env::var("OPENROUTER_API_KEY").ok(),
+            secrets_gcs_path: std::env::var("SECRETS_GCS_PATH").ok(),
             openrouter_http_referer: std::env::var("OPENROUTER_HTTP_REFERER").ok(),
             openrouter_app_name: std::env::var("OPENROUTER_APP_NAME").ok(),
         })
@@ -135,6 +138,25 @@ impl ServerConfig {
 }
 
 pub async fn build_state(config: ServerConfig) -> Result<AppState, ServerError> {
+    let secret_values = if let Some(path) = config.secrets_gcs_path.as_deref() {
+        let store = GcsSecretObjectStore::new()
+            .await
+            .map_err(|error| ServerError::Configuration(format!("secret store: {error}")))?;
+        SecretLoader::new(store)
+            .load(path)
+            .await
+            .map_err(|error| ServerError::Configuration(format!("secret loading: {error}")))?
+    } else {
+        Default::default()
+    };
+    let openrouter_api_key = config
+        .openrouter_api_key
+        .or_else(|| secret_values.get("OPENROUTER_API_KEY").cloned())
+        .ok_or_else(|| {
+            ServerError::Configuration(
+                "OPENROUTER_API_KEY or a secret-object value with that key is required".into(),
+            )
+        })?;
     let db = connect(&config.project_id, &config.firestore_database_id)
         .await
         .map_err(|error| ServerError::Configuration(format!("Firestore: {error}")))?;
@@ -172,7 +194,7 @@ pub async fn build_state(config: ServerConfig) -> Result<AppState, ServerError> 
         .map_err(|error| ServerError::Configuration(error.to_string()))?;
     let uploads = Arc::new(FileUploadService::new(storage));
     let model = OpenRouter::new(
-        config.openrouter_api_key,
+        openrouter_api_key,
         config.openrouter_http_referer,
         config.openrouter_app_name,
         Duration::from_secs(50),

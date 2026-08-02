@@ -312,6 +312,7 @@ fn parse_backup(reader: impl BufRead, source_email: &str) -> Result<BackupData, 
     Ok(data)
 }
 
+#[allow(clippy::type_complexity)]
 fn build_records(
     backup: BackupData,
     target_user_id: &str,

@@ -98,6 +98,7 @@ mod tests {
 
     #[derive(Clone, Default)]
     struct FakeObjectStorage {
+        #[allow(clippy::type_complexity)]
         uploaded: Arc<Mutex<Vec<(String, Vec<u8>, String)>>>,
     }
 

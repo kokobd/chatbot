@@ -81,6 +81,7 @@ impl Chat {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn from_persisted(
         id: impl AsRef<str>,
         user_id: impl AsRef<str>,

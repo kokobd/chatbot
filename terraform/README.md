@@ -2,7 +2,7 @@
 
 This Terraform root provisions the remote GCP resources used by Chatbot. It
 does not run the application locally. For local development, provision or
-select the `test` workspace here, then run only the Next.js/Rust application
+select the `test` workspace here, then run only the Rust application
 from the repository root. The local process connects to that workspace's real
 Firestore database and GCS bucket through Google APIs; no local Firestore or
 GCS emulator is expected.
@@ -78,7 +78,7 @@ export FIRESTORE_DATABASE_ID="$(terraform -chdir=terraform output -raw firestore
 
 Copy those values into `.env` if they should persist across shells. Then set
 local IAP test identity variables and `OPENROUTER_API_KEY`, and run
-`pnpm dev` from the repository root. See the root
+`cargo run -p chatbot-web` from the repository root. See the root
 [`README.md`](../README.md) for the complete local workflow.
 
 Do not use the Terraform `default` workspace; this configuration rejects it to
@@ -185,7 +185,7 @@ Use these outputs to configure the local Firestore capability test:
 ```bash
 export FIRESTORE_PROJECT_ID="$(terraform -chdir=terraform output -raw firestore_project_id)"
 export FIRESTORE_DATABASE_ID="$(terraform -chdir=terraform output -raw firestore_database_id)"
-pnpm native:firestore:test
+cargo test -p chatbot-infrastructure --lib infrastructure::firestore::tests::firestore_supports_required_primitives -- --ignored --nocapture
 ```
 
 The capability test is part of the native test suite and requires these
@@ -194,7 +194,7 @@ variables and Google ADC whenever native tests are run:
 ```bash
 export FIRESTORE_PROJECT_ID="$(terraform -chdir=terraform output -raw firestore_project_id)"
 export FIRESTORE_DATABASE_ID="$(terraform -chdir=terraform output -raw firestore_database_id)"
-pnpm native:test
+cargo test --workspace --all-targets
 ```
 
 Verify the named database directly when needed:

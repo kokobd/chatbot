@@ -103,6 +103,7 @@ struct MalformedChatDocument {
 }
 
 #[tokio::test]
+#[ignore = "requires Terraform test workspace and ADC"]
 async fn round_trips_chat_updates_and_duplicate_winner_comparison() {
     let db = connect().await;
     let first = FirestoreChatRepository::new(db.clone());
@@ -167,6 +168,7 @@ async fn round_trips_chat_updates_and_duplicate_winner_comparison() {
 }
 
 #[tokio::test]
+#[ignore = "requires Terraform test workspace and ADC"]
 async fn history_supports_both_cursor_directions_equal_timestamps_and_tombstones() {
     let db = connect().await;
     let repository = FirestoreChatRepository::new(db.clone());
@@ -274,6 +276,7 @@ async fn history_supports_both_cursor_directions_equal_timestamps_and_tombstones
 }
 
 #[tokio::test]
+#[ignore = "requires Terraform test workspace and ADC"]
 async fn independent_instances_preserve_concurrent_field_specific_updates() {
     let db = connect().await;
     let first = FirestoreChatRepository::new(db.clone());
@@ -306,6 +309,7 @@ async fn independent_instances_preserve_concurrent_field_specific_updates() {
 }
 
 #[tokio::test]
+#[ignore = "requires Terraform test workspace and ADC"]
 async fn malformed_records_are_rejected_at_the_adapter_boundary() {
     let db = connect().await;
     let repository = FirestoreChatRepository::new(db.clone());
@@ -337,6 +341,7 @@ async fn malformed_records_are_rejected_at_the_adapter_boundary() {
 }
 
 #[tokio::test]
+#[ignore = "requires Terraform test workspace and ADC"]
 async fn stale_writes_cannot_revive_a_tombstoned_chat() {
     let db = connect().await;
     let repository = FirestoreChatRepository::new(db.clone());

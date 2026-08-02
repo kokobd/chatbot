@@ -104,6 +104,7 @@ async fn delete_chat(db: &FirestoreDb, chat_id: &str) {
 }
 
 #[tokio::test]
+#[ignore = "requires Terraform test workspace and ADC"]
 async fn messages_round_trip_order_update_duplicates_and_collection_group_usage() {
     let db = connect().await;
     let chats = FirestoreChatRepository::new(db.clone());
@@ -138,7 +139,9 @@ async fn messages_round_trip_order_update_duplicates_and_collection_group_usage(
             vec![second_message.clone(), first_message.clone()]
         );
         assert_eq!(
-            second.save_messages(&[first_message.clone()]).await?,
+            second
+                .save_messages(std::slice::from_ref(&first_message))
+                .await?,
             vec![first_message.clone()]
         );
 
@@ -209,6 +212,7 @@ async fn messages_round_trip_order_update_duplicates_and_collection_group_usage(
 }
 
 #[tokio::test]
+#[ignore = "requires Terraform test workspace and ADC"]
 async fn delete_messages_from_position_is_inclusive_and_uses_the_full_position() {
     let db = connect().await;
     let chats = FirestoreChatRepository::new(db.clone());
@@ -354,6 +358,7 @@ async fn delete_messages_from_position_is_inclusive_and_uses_the_full_position()
 }
 
 #[tokio::test]
+#[ignore = "requires Terraform test workspace and ADC"]
 async fn delete_messages_from_position_rejects_more_than_500_without_partial_writes() {
     let db = connect().await;
     let chats = FirestoreChatRepository::new(db.clone());

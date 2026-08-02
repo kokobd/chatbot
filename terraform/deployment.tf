@@ -195,7 +195,7 @@ resource "google_cloud_run_v2_service" "chatbot" {
   project             = var.project_id
   name                = local.cloud_run_service_name
   location            = var.location
-  ingress             = "INGRESS_TRAFFIC_ALL"
+  ingress             = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
   iap_enabled         = true
   deletion_protection = local.firestore_is_production
   labels              = local.labels
@@ -205,11 +205,6 @@ resource "google_cloud_run_v2_service" "chatbot" {
 
     containers {
       image = "us-docker.pkg.dev/cloudrun/container/hello"
-
-      env {
-        name  = "NODE_ENV"
-        value = "production"
-      }
 
       env {
         name  = "IAP_AUTH_PROVIDER"

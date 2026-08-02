@@ -19,7 +19,7 @@
 
 Local development runs only the application on your machine:
 
-- Next.js, the Rust native service, and the browser run locally.
+- The Rust Axum server and Leptos browser client run locally.
 - Firestore and Google Cloud Storage are real GCP services provisioned by
   Terraform, not local emulators.
 - The local application uses the Terraform `test` workspace's named Firestore
@@ -28,7 +28,7 @@ Local development runs only the application on your machine:
   resources.
 
 Cloud Run, Cloud Build, and production IAP are deployed infrastructure. They
-are not started by `pnpm dev`. The complete provisioning workflow is in
+are not started by a local Cargo command. The complete provisioning workflow is in
 [`terraform/README.md`](./terraform/README.md).
 
 ## Features
@@ -124,18 +124,17 @@ gcloud auth application-default login
 secret path from Terraform; locally, the OpenRouter key can be supplied
 directly through `.env`.
 
-### 3. Run the application
+### 3. Run the Rust application
 
-Only the application runs locally:
+Run the Rust server locally:
 
 ```bash
-pnpm install
-pnpm dev
+cargo run -p chatbot-web
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The local Next.js/Rust
-process connects to the Terraform-provisioned `test` Firestore database and
-GCS bucket over Google APIs.
+Open [http://localhost:8080](http://localhost:8080). The local server connects
+to the Terraform-provisioned `test` Firestore database and GCS bucket over
+Google APIs.
 
 For native or end-to-end verification, see
 [`native/README.md`](./native/README.md). Those capability tests also require

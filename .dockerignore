@@ -8,6 +8,10 @@ node_modules
 .pnpm-store
 .next
 native/target
+target
+node_modules
+package.json
+pnpm-lock.yaml
 native/*.node
 playwright-report
 test-results

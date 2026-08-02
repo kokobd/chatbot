@@ -154,7 +154,6 @@ impl FirestoreMessageRepository {
         };
         let update_time = document
             .update_time
-            .clone()
             .map(from_timestamp)
             .transpose()
             .map_err(|error| map_firestore_error(error, operation))?;
@@ -392,7 +391,6 @@ impl FirestoreMessageRepository {
         };
         let update_time = document
             .update_time
-            .clone()
             .map(from_timestamp)
             .transpose()
             .map_err(|error| map_firestore_error(error, MessageOperation::Read))?

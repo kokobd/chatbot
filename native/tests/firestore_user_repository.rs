@@ -63,6 +63,7 @@ fn new_identity(email: &str) -> IapIdentity {
 }
 
 #[tokio::test]
+#[ignore = "requires Terraform test workspace and ADC"]
 async fn round_trips_create_lookup_and_email_update() {
     let db = connect().await;
     let repository = FirestoreUserRepository::new(db.clone());
@@ -92,6 +93,7 @@ async fn round_trips_create_lookup_and_email_update() {
 }
 
 #[tokio::test]
+#[ignore = "requires Terraform test workspace and ADC"]
 async fn duplicate_create_returns_conflict() {
     let db = connect().await;
     let repository = FirestoreUserRepository::new(db.clone());
@@ -114,6 +116,7 @@ async fn duplicate_create_returns_conflict() {
 }
 
 #[tokio::test]
+#[ignore = "requires Terraform test workspace and ADC"]
 async fn email_update_preserves_unrelated_fields_and_malformed_records_are_rejected() {
     let db = connect().await;
     let repository = FirestoreUserRepository::new(db.clone());
@@ -188,6 +191,7 @@ async fn email_update_preserves_unrelated_fields_and_malformed_records_are_rejec
 }
 
 #[tokio::test]
+#[ignore = "requires Terraform test workspace and ADC"]
 async fn independent_service_instances_share_one_record() {
     let db = connect().await;
     let first_service = Arc::new(UserService::new(Arc::new(FirestoreUserRepository::new(

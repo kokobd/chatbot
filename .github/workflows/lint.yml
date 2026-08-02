@@ -5,21 +5,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        node-version: [20]
     steps:
       - uses: actions/checkout@v4
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          version: 10.32.1
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: "pnpm"
-      - name: Install dependencies
-        run: pnpm install
-      - name: Run check
-        run: pnpm check
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Install wasm target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Lint
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Test
+        run: cargo test --workspace --all-targets
+      - name: Check hydrate target
+        run: cargo check -p chatbot-web --target wasm32-unknown-unknown --no-default-features --features hydrate
