@@ -15,5 +15,5 @@ zstd = "0.13"
 
 [dev-dependencies]
 firestore = "=0.50.0"
-rustls = { version = "0.23", features = ["ring"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 uuid = { version = "1", features = ["v4", "v5"] }

@@ -6,8 +6,6 @@ use firestore::{FirestoreDb, FirestoreDbOptions, FirestoreResult};
 /// by a process-specific entrypoint.
 #[allow(dead_code)]
 pub async fn connect(project_id: &str, database_id: &str) -> FirestoreResult<FirestoreDb> {
-    let _ = rustls::crypto::ring::default_provider().install_default();
-
     FirestoreDb::with_options(
         FirestoreDbOptions::new(project_id.to_string()).with_database_id(database_id.to_string()),
     )

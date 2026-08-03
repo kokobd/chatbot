@@ -223,6 +223,14 @@ pub async fn build_state(config: ServerConfig) -> Result<AppState, ServerError> 
 }
 
 pub async fn run() -> Result<(), ServerError> {
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .map_err(|_| {
+            ServerError::Configuration(
+                "Rustls crypto provider was initialized before application startup".into(),
+            )
+        })?;
+
     let config = ServerConfig::from_env()?;
     let port = config.port;
     let mut state = build_state(config).await?;
