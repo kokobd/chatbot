@@ -25,6 +25,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/target/release/chatbot-web /usr/local/bin/chatbot-web
+COPY --from=build /app/crates/chatbot-web/assets /app/crates/chatbot-web/assets
 
 EXPOSE 8080
 

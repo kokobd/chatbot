@@ -17,13 +17,13 @@ http = { version = "1", optional = true }
 leptos = { version = "0.8.5", default-features = false }
 leptos_axum = { version = "0.8.5", optional = true }
 leptos_router = { version = "0.8.5", default-features = false }
-rustls = { version = "0.23", default-features = false, features = ["ring"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"], optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = { version = "2", optional = true }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "sync", "time"], optional = true }
 tokio-util = { version = "0.7", features = ["rt"], optional = true }
-tower-http = { version = "0.6", features = ["trace"], optional = true }
+tower-http = { version = "0.6", features = ["trace", "fs"], optional = true }
 tracing = { version = "0.1", optional = true }
 uuid = { version = "1", features = ["v4"], optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
@@ -34,6 +34,7 @@ ssr = [
     "leptos/ssr",
     "leptos_router/ssr",
     "dep:leptos_axum",
+    "dep:rustls",
     "dep:async-trait",
     "dep:async-stream",
     "dep:axum",

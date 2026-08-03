@@ -12,8 +12,8 @@ resource "google_firestore_database" "chatbot" {
   concurrency_mode                  = "OPTIMISTIC"
   app_engine_integration_mode       = "DISABLED"
   point_in_time_recovery_enablement = local.firestore_is_production ? "POINT_IN_TIME_RECOVERY_ENABLED" : "POINT_IN_TIME_RECOVERY_DISABLED"
-  delete_protection_state           = local.firestore_is_production ? "DELETE_PROTECTION_ENABLED" : "DELETE_PROTECTION_DISABLED"
-  deletion_policy                   = local.firestore_is_production ? "PREVENT" : "DELETE"
+  delete_protection_state           = "DELETE_PROTECTION_DISABLED"
+  deletion_policy                   = "DELETE"
 
   depends_on = [
     google_project_service.firestore,

@@ -45,6 +45,7 @@ use chrono::Utc;
 use futures_util::StreamExt;
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
+use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
@@ -237,13 +238,16 @@ pub async fn run() -> Result<(), ServerError> {
     #[cfg(feature = "ssr")]
     {
         state.leptos_options = Some(
-            leptos::config::get_configuration(None)
-                .map_err(|error| ServerError::Configuration(error.to_string()))?
-                .leptos_options,
+            leptos::config::LeptosOptions::builder()
+                .output_name("chatbot-web")
+                .build(),
         );
     }
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port)).await?;
-    let mut app = api_routes();
+    let mut app = api_routes().nest_service(
+        "/assets",
+        ServeDir::new(concat!(env!("CARGO_MANIFEST_DIR"), "/assets")),
+    );
     #[cfg(feature = "ssr")]
     {
         use leptos_axum::{generate_route_list, LeptosRoutes};
@@ -265,9 +269,9 @@ fn api_routes() -> Router<AppState> {
         .route("/health/ready", get(ready))
         .route("/api/models", get(models))
         .route("/api/chats", get(history).delete(delete_all_chats))
-        .route("/api/chats/:id", get(chat).delete(delete_chat))
-        .route("/api/chats/:id/messages/stream", post(stream_message))
-        .route("/api/chats/:id/messages/edit", post(edit_message))
+        .route("/api/chats/{id}", get(chat).delete(delete_chat))
+        .route("/api/chats/{id}/messages/stream", post(stream_message))
+        .route("/api/chats/{id}/messages/edit", post(edit_message))
         .route("/api/uploads", post(upload))
         .layer(TraceLayer::new_for_http())
 }
@@ -1004,7 +1008,12 @@ async fn shutdown_signal() {
 
 #[cfg(test)]
 mod tests {
-    use super::valid_image_signature;
+    use super::{api_routes, valid_image_signature};
+
+    #[test]
+    fn builds_api_routes_with_axum_0_8_path_captures() {
+        let _router = api_routes();
+    }
 
     #[test]
     fn rejects_mismatched_image_signatures() {

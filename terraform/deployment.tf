@@ -192,13 +192,19 @@ resource "google_cloudbuild_trigger" "workspace" {
 }
 
 resource "google_cloud_run_v2_service" "chatbot" {
-  project             = var.project_id
-  name                = local.cloud_run_service_name
-  location            = var.location
-  ingress             = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
-  iap_enabled         = true
-  deletion_protection = local.firestore_is_production
-  labels              = local.labels
+  project  = var.project_id
+  name     = local.cloud_run_service_name
+  location = var.location
+  # Direct Cloud Run IAP protects the default run.app endpoint. Restricting
+  # ingress to load-balancer traffic makes that endpoint return a Google 404
+  # because this workspace does not provision a load balancer.
+  ingress     = "INGRESS_TRAFFIC_ALL"
+  iap_enabled = true
+  # IAP is the only human-facing access control. Do not require a separate
+  # Cloud Run Invoker IAM grant after IAP has authenticated the user.
+  invoker_iam_disabled = true
+  deletion_protection  = false
+  labels               = local.labels
 
   template {
     service_account = google_service_account.runtime.email
@@ -254,16 +260,6 @@ resource "google_cloud_run_v2_service" "chatbot" {
     google_storage_bucket_iam_member.uploads_runtime_creator,
     google_storage_bucket_iam_member.runtime_secrets_reader,
   ]
-}
-
-resource "google_cloud_run_v2_service_iam_member" "iap_invoker" {
-  project  = var.project_id
-  location = google_cloud_run_v2_service.chatbot.location
-  name     = google_cloud_run_v2_service.chatbot.name
-  role     = "roles/run.invoker"
-  member   = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-iap.iam.gserviceaccount.com"
-
-  depends_on = [google_project_service.iap]
 }
 
 resource "google_iap_web_cloud_run_service_iam_member" "allowed_user" {

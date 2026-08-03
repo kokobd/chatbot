@@ -7,6 +7,7 @@ use leptos_router::{
 #[component]
 pub fn App() -> impl IntoView {
     view! {
+        <link rel="stylesheet" href="/assets/app.css" />
         <Router>
             <main class="chatbot-shell">
                 <header class="chatbot-header">
