@@ -8,5 +8,5 @@ target
 terraform/.terraform
 .env
 .env.*
-!.env.example
+!.env.toml.example
 *.log

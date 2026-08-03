@@ -76,10 +76,17 @@ export FIRESTORE_PROJECT_ID="$(terraform -chdir=terraform output -raw firestore_
 export FIRESTORE_DATABASE_ID="$(terraform -chdir=terraform output -raw firestore_database_id)"
 ```
 
-Copy those values into `.env` if they should persist across shells. Then set
-local IAP test identity variables and `OPENROUTER_API_KEY`, and run
-`cargo run -p chatbot-web` from the repository root. See the root
-[`README.md`](../README.md) for the complete local workflow.
+For Nushell, copy `.env.toml.example` to `.env.toml`, put those values and the
+local `OPENROUTER_API_KEY` in it, then run:
+
+```nu
+open .env.toml | from toml | load-env
+cargo run -p chatbot-web
+```
+
+The application reads inherited environment variables; developers using another
+shell may set the same values directly. See the root [`README.md`](../README.md)
+for the complete local workflow.
 
 Do not use the Terraform `default` workspace; this configuration rejects it to
 avoid creating an accidentally unnamed environment.

@@ -32,13 +32,22 @@ terraform -chdir=terraform workspace select test
 terraform -chdir=terraform apply
 ```
 
-Set the resulting `GCS_BUCKET`, `FIRESTORE_PROJECT_ID`, and
-`FIRESTORE_DATABASE_ID` values in `.env`, along with the OpenRouter key:
+Copy the local configuration template and set the resulting `GCS_BUCKET`,
+`FIRESTORE_PROJECT_ID`, and `FIRESTORE_DATABASE_ID` values along with the
+OpenRouter key:
 
-```dotenv
-IAP_AUTH_PROVIDER=test
-OPENROUTER_API_KEY=your-key
+```nu
+cp .env.toml.example .env.toml
 ```
+
+Nushell can load that TOML file into the current process environment:
+
+```nu
+open .env.toml | from toml | load-env
+```
+
+The application itself reads environment variables, not TOML. Developers using
+another shell can set the same variables directly instead of creating a file.
 
 When using test authentication, send
 `x-goog-authenticated-user-email` and `x-goog-authenticated-user-id` headers

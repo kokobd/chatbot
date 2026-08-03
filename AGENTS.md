@@ -25,7 +25,9 @@ Cloud Build may use its managed Docker builder.
 ## Test environment
 
 - Test resources are provisioned using `terraform/`.
-- Local `.env` stores the GCP resources created by Terraform.
+- Local applications and tests read their configuration from inherited
+  environment variables. `.env.toml` is an optional gitignored Nushell
+  convenience file for loading the Terraform-created GCP resource values.
 - Production secrets are managed separately through the configured GCS secret
   object.
 

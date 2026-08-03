@@ -1,6 +1,4 @@
 use std::env;
-use std::fs;
-use std::sync::Once;
 
 use chatbot_tools::domain::{Chat, LifecycleState, Visibility};
 use chatbot_tools::{
@@ -13,36 +11,12 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 const CHATS_COLLECTION: &str = "chats";
-static LOAD_DOTENV: Once = Once::new();
-
-fn load_dotenv() {
-    LOAD_DOTENV.call_once(|| {
-        let Ok(contents) = fs::read_to_string(".env") else {
-            return;
-        };
-        for line in contents.lines() {
-            let line = line.trim();
-            if line.is_empty() || line.starts_with('#') {
-                continue;
-            }
-            let Some((name, value)) = line.split_once('=') else {
-                continue;
-            };
-            if env::var_os(name.trim()).is_none() {
-                let value = value.trim().trim_matches('"').trim_matches('\'');
-                env::set_var(name.trim(), value);
-            }
-        }
-    });
-}
 
 fn required_environment(name: &str) -> String {
-    load_dotenv();
     env::var(name).unwrap_or_else(|_| panic!("{name} must be configured for this test"))
 }
 
 fn database_configuration() -> (String, String) {
-    load_dotenv();
     assert!(
         env::var_os("FIRESTORE_EMULATOR_HOST").is_none(),
         "FIRESTORE_EMULATOR_HOST must not be set for real-GCP tests"

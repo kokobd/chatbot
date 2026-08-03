@@ -1,6 +1,4 @@
 use std::env;
-use std::fs;
-use std::sync::Once;
 
 use chatbot_tools::domain::{
     Chat, JsonValue, Message, MessageRole, PaginationPosition, Visibility,
@@ -16,33 +14,8 @@ use uuid::Uuid;
 
 const CHATS_COLLECTION: &str = "chats";
 const MESSAGES_COLLECTION: &str = "messages";
-static LOAD_DOTENV: Once = Once::new();
-
-fn load_dotenv() {
-    LOAD_DOTENV.call_once(|| {
-        let Ok(contents) = fs::read_to_string(".env") else {
-            return;
-        };
-        for line in contents.lines() {
-            let line = line.trim();
-            if line.is_empty() || line.starts_with('#') {
-                continue;
-            }
-            let Some((name, value)) = line.split_once('=') else {
-                continue;
-            };
-            if env::var_os(name.trim()).is_none() {
-                env::set_var(
-                    name.trim(),
-                    value.trim().trim_matches('"').trim_matches('\''),
-                );
-            }
-        }
-    });
-}
 
 async fn connect() -> FirestoreDb {
-    load_dotenv();
     assert!(env::var_os("FIRESTORE_EMULATOR_HOST").is_none());
     let project_id = env::var("FIRESTORE_PROJECT_ID").expect("FIRESTORE_PROJECT_ID is required");
     let database_id = env::var("FIRESTORE_DATABASE_ID").expect("FIRESTORE_DATABASE_ID is required");
